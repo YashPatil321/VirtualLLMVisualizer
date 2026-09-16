@@ -10,6 +10,7 @@ Work the lowest unfinished milestone. Do not start the next one until the curren
 - [ ] URP project created, git initialized with LFS and a Unity `.gitignore`
 - [ ] `com.unity.pipeline` installed, `unity status` reports ready
 - [ ] MCP server registered with Claude Code
+- [ ] Test Framework package installed so the edit mode tests run
 - [ ] OpenXR, XR Plugin Management, XR Interaction Toolkit installed via the Package Manager Client API
 - [ ] Android build settings applied per `docs/setup-runbook.md`
 - [ ] Empty scene builds and runs on the headset
@@ -52,7 +53,7 @@ Work the lowest unfinished milestone. Do not start the next one until the curren
 ## V5: Trace playback
 
 - [ ] Trace JSON deserialized into plain C# types per `docs/metrics-contract.md`
-- [ ] `data/sample-trace.json` loads and validates
+- [ ] `Assets/Data/sample-trace.json` loads and validates
 - [ ] System view: nodes for client, broker, Mini, scheduler, both rigs
 - [ ] Request travels the path with timing from the trace
 - [ ] The named card lights and shows load and temperature climbing

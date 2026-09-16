@@ -2,7 +2,7 @@
 
 This is what the VR layer needs from the broker. Send it to Anvay early. Every field here is something the system should be logging for its own observability anyway, so this is asking for very little that should not already exist.
 
-Until the broker emits this, the experience reads `data/sample-trace.json`, which is hand written and follows the same schema.
+Until the broker emits this, the experience reads `Assets/Data/sample-trace.json`, which is hand written and follows the same schema.
 
 ---
 

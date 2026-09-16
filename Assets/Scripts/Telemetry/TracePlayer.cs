@@ -15,7 +15,7 @@ namespace OCS.VR.Telemetry
     public class TracePlayer : MonoBehaviour
     {
         [Header("Source")]
-        [Tooltip("Replay source. data/sample-trace.json until the broker emits real ones.")]
+        [Tooltip("Replay source. Assets/Data/sample-trace.json until the broker emits real ones.")]
         public TextAsset traceAsset;
 
         [Header("Playback")]

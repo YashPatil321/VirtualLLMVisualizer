@@ -51,6 +51,15 @@ namespace OCS.VR.Experience
         public float FixedDurationSeconds =>
             emptyBenchDuration + assemblyDuration + powerOnDuration + answerDuration;
 
+        void Awake()
+        {
+            // This sequencer owns when the trace plays. Leaving playOnStart on would
+            // start it during Act 1, so TraceFinished lands long before Act 4 and the
+            // request act waits on a flag that is already set. Awake, not Start:
+            // component Start order is undefined and TracePlayer.Start would win.
+            if (tracePlayer != null) tracePlayer.playOnStart = false;
+        }
+
         void OnEnable()
         {
             if (tracePlayer != null) tracePlayer.TraceFinished += OnTraceFinished;
@@ -114,6 +123,9 @@ namespace OCS.VR.Experience
                 SetAct(Act.Request);
                 if (tracePlayer != null)
                 {
+                    // Cleared here, not at the top of the arc, so nothing that happened
+                    // during the earlier acts can satisfy the wait below.
+                    _traceDone = false;
                     tracePlayer.Play();
                     // Wait on the trace rather than a timer, so retiming the trace
                     // never desyncs the arc from it.

@@ -37,9 +37,14 @@ Assets/
   Prefabs/
   Scenes/
   Art/
+  Data/            trace JSON, imported by Unity as TextAsset
+  Tests/
 docs/
-data/
 ```
+
+`Assets/Data/` rather than a top level `data/`: TracePlayer takes a `TextAsset`, and
+Unity only imports assets under `Assets/`. A trace outside it cannot be assigned in the
+inspector or shipped in the build.
 
 ## Conventions
 

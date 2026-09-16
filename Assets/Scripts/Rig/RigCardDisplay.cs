@@ -7,6 +7,9 @@ namespace OCS.VR.Rig
     /// Listens to a TracePlayer and drives the visual state of the cards: which one is
     /// working, how hot it is, how loaded. Holds no playback logic of its own.
     ///
+    /// The load bookkeeping lives in CardLoadState, a plain C# class, so it can be tested
+    /// in edit mode. This class only turns that state into Transforms.
+    ///
     /// Card visuals are plain Transforms for now. Swap in real materials and emission
     /// at V7 without touching this class.
     /// </summary>
@@ -25,15 +28,12 @@ namespace OCS.VR.Rig
 
         public float lerpSpeed = 6f;
 
-        float[] _targetLoad;
-        float[] _currentLoad;
-        int _activeCard = -1;
+        CardLoadState _state;
 
         void Awake()
         {
             int count = layout != null ? layout.cardCount : 8;
-            _targetLoad = new float[count];
-            _currentLoad = new float[count];
+            _state = new CardLoadState(count);
         }
 
         void OnEnable()
@@ -41,6 +41,7 @@ namespace OCS.VR.Rig
             if (player == null) return;
             player.HopStarted += OnHopStarted;
             player.HopEnded += OnHopEnded;
+            player.TraceStarted += OnTraceStarted;
             player.TraceFinished += OnTraceFinished;
         }
 
@@ -49,6 +50,7 @@ namespace OCS.VR.Rig
             if (player == null) return;
             player.HopStarted -= OnHopStarted;
             player.HopEnded -= OnHopEnded;
+            player.TraceStarted -= OnTraceStarted;
             player.TraceFinished -= OnTraceFinished;
         }
 
@@ -71,55 +73,42 @@ namespace OCS.VR.Rig
         void OnHopStarted(Hop hop)
         {
             if (!hop.HasGpuTelemetry) return;
-            if (layout != null && !layout.IsValidIndex(hop.gpu_index)) return;
-
-            _activeCard = hop.gpu_index;
 
             // gpu_util arrives 0 to 100. Model hops carry an index but no util,
             // so fall back to fully loaded rather than showing an idle card
             // while it is visibly the one doing the work.
             float load = hop.gpu_util > 0f ? hop.gpu_util / 100f : 1f;
-            _targetLoad[hop.gpu_index] = Mathf.Clamp01(load);
+            _state.HopStarted(hop.gpu_index, load);
         }
 
         void OnHopEnded(Hop hop)
         {
             if (!hop.HasGpuTelemetry) return;
-            if (layout != null && !layout.IsValidIndex(hop.gpu_index)) return;
-
-            _targetLoad[hop.gpu_index] = 0f;
-            if (_activeCard == hop.gpu_index) _activeCard = -1;
+            _state.HopEnded(hop.gpu_index);
         }
 
-        void OnTraceFinished(Trace trace)
-        {
-            for (int i = 0; i < _targetLoad.Length; i++) _targetLoad[i] = 0f;
-            _activeCard = -1;
-        }
+        void OnTraceStarted(Trace trace) => _state.ResetAll();
+        void OnTraceFinished(Trace trace) => _state.ResetAll();
 
         void Update()
         {
             if (cards == null) return;
 
-            float t = Time.deltaTime * lerpSpeed;
+            _state.Step(Time.deltaTime, lerpSpeed);
 
-            for (int i = 0; i < cards.Length && i < _currentLoad.Length; i++)
+            if (layout == null) return;
+
+            for (int i = 0; i < cards.Length && i < _state.CardCount; i++)
             {
-                _currentLoad[i] = Mathf.Lerp(_currentLoad[i], _targetLoad[i], t);
-
-                if (cards[i] == null || layout == null) continue;
+                if (cards[i] == null) continue;
 
                 Vector3 basePos = layout.GetCardLocalPosition(i);
-                basePos.y += activeLift * _currentLoad[i];
+                basePos.y += activeLift * _state.Current(i);
                 cards[i].localPosition = basePos;
             }
         }
 
-        public int ActiveCard => _activeCard;
-        public float LoadOf(int index)
-        {
-            if (_currentLoad == null || index < 0 || index >= _currentLoad.Length) return 0f;
-            return _currentLoad[index];
-        }
+        public int ActiveCard => _state != null ? _state.ActiveCard : -1;
+        public float LoadOf(int index) => _state != null ? _state.Current(index) : 0f;
     }
 }

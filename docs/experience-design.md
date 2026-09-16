@@ -68,7 +68,7 @@ Replay mode is built first and it is the mode that ships. Reasons:
 - A demo that depends on the rigs being up is a demo that eventually does not happen
 - I can build the entire experience before Anvay's broker is finished, so neither of us blocks the other
 - A recorded trace can be picked for pacing. A live request might take 400 ms or 40 seconds, and 40 seconds of watching a progress bar is not an experience
-- `data/sample-trace.json` is hand written and already in the repo, so work can start today
+- `Assets/Data/sample-trace.json` is hand written and already in the repo, so work can start today
 
 Live mode is a later addition and a nice one for a demo with the rigs running. It is not the deliverable.
 
