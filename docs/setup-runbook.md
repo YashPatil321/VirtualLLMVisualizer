@@ -56,6 +56,31 @@ URP matters here. The built in render pipeline will run on Quest but you lose th
 
 ---
 
+## 3b. Opening this repo as the project
+
+Unity Hub will not create a project inside a folder that already has files in it, so
+the repo cannot be the target of "New project". Go the other way:
+
+1. Unity Hub, New project, Universal 3D, any name. Let it open once, then close it.
+2. Run the bootstrap script with the path to that throwaway project:
+
+```bash
+./tools/bootstrap-unity-project.sh ~/Unity/OCSVisualizer-fresh     # macOS, Linux
+.\tools\bootstrap-unity-project.ps1 -Fresh "$HOME\Unity\OCSVisualizer-fresh"   # Windows
+```
+
+   It copies the generated `ProjectSettings/` and `Packages/` into the repo and checks
+   that every asset still has its `.meta`. The repo is then both the git repo and the
+   Unity project, with history intact.
+
+3. Unity Hub, Open, pick the repo folder. Commit `ProjectSettings/` and `Packages/`.
+
+Do not copy `Assets/` out to a fresh project instead. The `.meta` files carry the GUIDs
+that the `.asset` data files reference, and a copy that drops them silently unlinks
+every ScriptableObject.
+
+---
+
 ## 4. Source control
 
 Use Git with LFS, because 3D models and textures are binary and will wreck a plain Git repo over time.
