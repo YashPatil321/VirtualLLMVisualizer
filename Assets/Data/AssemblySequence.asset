@@ -1,0 +1,177 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 19087cf1b75144e18b7c2499c1dedeaa, type: 3}
+  m_Name: AssemblySequence
+  m_EditorClassIdentifier: 
+  steps:
+  - stepId: frame
+    partName: "Open air frame"
+    kind: 0
+    cardIndex: -1
+    travelSeconds: 2.5
+    settleSeconds: 0.6
+    narration: "An open frame. Eight cards need airflow more than they need a case."
+  - stepId: motherboard
+    partName: "Motherboard"
+    kind: 1
+    cardIndex: -1
+    travelSeconds: 2.0
+    settleSeconds: 0.5
+    narration: "The motherboard. Its job here is mostly to have enough PCIe lanes."
+  - stepId: cpu
+    partName: "CPU"
+    kind: 2
+    cardIndex: -1
+    travelSeconds: 1.5
+    settleSeconds: 0.4
+    narration: "The CPU barely works during inference. The cards do that."
+  - stepId: ram
+    partName: "System RAM"
+    kind: 3
+    cardIndex: -1
+    travelSeconds: 1.5
+    settleSeconds: 0.4
+    narration: "System memory holds the model while it is on its way to the cards."
+  - stepId: psu
+    partName: "Power supply"
+    kind: 4
+    cardIndex: -1
+    travelSeconds: 2.2
+    settleSeconds: 0.6
+    narration: "Eight cards is a lot of power. This is the part people underestimate."
+  - stepId: riser-0
+    partName: "Riser 0"
+    kind: 5
+    cardIndex: 0
+    travelSeconds: 1.0
+    settleSeconds: 0.3
+    narration: "A riser lifts the card off the board so eight of them fit."
+  - stepId: riser-1
+    partName: "Riser 1"
+    kind: 5
+    cardIndex: 1
+    travelSeconds: 1.0
+    settleSeconds: 0.3
+    narration: ""
+  - stepId: riser-2
+    partName: "Riser 2"
+    kind: 5
+    cardIndex: 2
+    travelSeconds: 1.0
+    settleSeconds: 0.3
+    narration: ""
+  - stepId: riser-3
+    partName: "Riser 3"
+    kind: 5
+    cardIndex: 3
+    travelSeconds: 1.0
+    settleSeconds: 0.3
+    narration: ""
+  - stepId: riser-4
+    partName: "Riser 4"
+    kind: 5
+    cardIndex: 4
+    travelSeconds: 1.0
+    settleSeconds: 0.3
+    narration: ""
+  - stepId: riser-5
+    partName: "Riser 5"
+    kind: 5
+    cardIndex: 5
+    travelSeconds: 1.0
+    settleSeconds: 0.3
+    narration: ""
+  - stepId: riser-6
+    partName: "Riser 6"
+    kind: 5
+    cardIndex: 6
+    travelSeconds: 1.0
+    settleSeconds: 0.3
+    narration: ""
+  - stepId: riser-7
+    partName: "Riser 7"
+    kind: 5
+    cardIndex: 7
+    travelSeconds: 1.0
+    settleSeconds: 0.3
+    narration: ""
+  - stepId: gpu-0
+    partName: "GTX 1070, card 0"
+    kind: 6
+    cardIndex: 0
+    travelSeconds: 1.6
+    settleSeconds: 0.5
+    narration: "First card in. Eight gigabytes of VRAM, and seven more to go."
+  - stepId: gpu-1
+    partName: "GTX 1070, card 1"
+    kind: 6
+    cardIndex: 1
+    travelSeconds: 1.6
+    settleSeconds: 0.5
+    narration: ""
+  - stepId: gpu-2
+    partName: "GTX 1070, card 2"
+    kind: 6
+    cardIndex: 2
+    travelSeconds: 1.6
+    settleSeconds: 0.5
+    narration: ""
+  - stepId: gpu-3
+    partName: "GTX 1070, card 3"
+    kind: 6
+    cardIndex: 3
+    travelSeconds: 1.6
+    settleSeconds: 0.5
+    narration: ""
+  - stepId: gpu-4
+    partName: "GTX 1070, card 4"
+    kind: 6
+    cardIndex: 4
+    travelSeconds: 1.6
+    settleSeconds: 0.5
+    narration: ""
+  - stepId: gpu-5
+    partName: "GTX 1070, card 5"
+    kind: 6
+    cardIndex: 5
+    travelSeconds: 1.6
+    settleSeconds: 0.5
+    narration: ""
+  - stepId: gpu-6
+    partName: "GTX 1070, card 6"
+    kind: 6
+    cardIndex: 6
+    travelSeconds: 1.6
+    settleSeconds: 0.5
+    narration: ""
+  - stepId: gpu-7
+    partName: "GTX 1070, card 7"
+    kind: 6
+    cardIndex: 7
+    travelSeconds: 1.6
+    settleSeconds: 0.5
+    narration: "That is all eight. Together they hold a model no single card could."
+  - stepId: pcie-power
+    partName: "PCIe power"
+    kind: 7
+    cardIndex: -1
+    travelSeconds: 2.0
+    settleSeconds: 0.5
+    narration: "Every card gets its own power. Daisy chaining them is how rigs catch fire."
+  - stepId: fans
+    partName: "Case fans"
+    kind: 8
+    cardIndex: -1
+    travelSeconds: 1.5
+    settleSeconds: 0.5
+    narration: "Fans last. Now it is a machine, not a pile of parts."
+  gapSeconds: 0.25

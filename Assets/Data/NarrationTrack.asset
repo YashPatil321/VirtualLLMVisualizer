@@ -1,0 +1,64 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ddcf5ec6f26946248ce11706e5ff255a, type: 3}
+  m_Name: NarrationTrack
+  m_EditorClassIdentifier: 
+  lines:
+  - cue: act.EmptyBench
+    text: "A bare frame and a tray of parts. Nothing is running yet."
+    holdSeconds: 6
+    clip: {fileID: 0}
+  - cue: act.Assembly
+    text: "This is how one of our rigs goes together."
+    holdSeconds: 5
+    clip: {fileID: 0}
+  - cue: act.PowerOn
+    text: "Power on. Eight cards, one machine."
+    holdSeconds: 5
+    clip: {fileID: 0}
+  - cue: act.Request
+    text: "Someone just sent a prompt. Watch where it goes."
+    holdSeconds: 5
+    clip: {fileID: 0}
+  - cue: act.Answer
+    text: "The answer came back off that card, in front of you."
+    holdSeconds: 6
+    clip: {fileID: 0}
+  - cue: act.Complete
+    text: "Same machine you started next to. Now you know what it does."
+    holdSeconds: 6
+    clip: {fileID: 0}
+  - cue: hop.Client
+    text: "A prompt leaves the browser."
+    holdSeconds: 2
+    clip: {fileID: 0}
+  - cue: hop.Broker
+    text: "The broker works out whose session this is."
+    holdSeconds: 3
+    clip: {fileID: 0}
+  - cue: hop.Scheduler
+    text: "The scheduler picks the least busy rig."
+    holdSeconds: 3
+    clip: {fileID: 0}
+  - cue: hop.Mini
+    text: "A Mac Mini assembles the context."
+    holdSeconds: 3
+    clip: {fileID: 0}
+  - cue: hop.Rig
+    text: "Rig 2 takes the job."
+    holdSeconds: 2
+    clip: {fileID: 0}
+  - cue: hop.Model
+    text: "Card three is generating. This is where the model actually runs."
+    holdSeconds: 5
+    clip: {fileID: 0}
+  defaultHoldSeconds: 4

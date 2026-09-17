@@ -1,0 +1,20 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7858a8fab16545749b9c3735aac767b0, type: 3}
+  m_Name: RigLayout
+  m_EditorClassIdentifier: 
+  cardCount: 8
+  cardSpacing: 0.09
+  firstCardOffset: {x: -0.32, y: 0.12, z: 0}
+  cardAxis: {x: 1, y: 0, z: 0}
+  tempMinC: 35
+  tempMaxC: 85

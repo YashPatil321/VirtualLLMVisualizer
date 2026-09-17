@@ -4,6 +4,28 @@ Work the lowest unfinished milestone. Do not start the next one until the curren
 
 ---
 
+## Status
+
+No box below is checked, because nothing has run on a headset yet. What exists is the
+code and data layer, written ahead of the toolchain so V1 is the only thing blocking.
+
+Code complete and covered by tests, waiting on the editor:
+
+| Milestone | What is written | What still needs Unity |
+|---|---|---|
+| V3 | `AssemblySequence.asset` holds the 23 step build order. `AssemblyTimeline` plays it. | Part prefabs, tray and socket transforms, binding them in `AssemblyPlayer` |
+| V5 | `SystemGraph.asset` holds the six nodes. `SystemRouteState` routes hops to them. | Node markers, the pulse, world space labels |
+| V6 | `NarrationTrack.asset` holds 12 lines, plus one per assembly step. | A text component or AudioSource listening to `NarrationDirector` |
+
+`tools/headless-tests/run.sh` compiles all of it and plays the full arc with no Unity
+installed. Last run: 40 tests pass, all 23 assembly steps fire, card 3 holds full load
+through generation, total runtime 114s against the 300s budget.
+
+That number is a simulation at a fixed 72 fps, not a measurement. Frame rate, draw
+calls and anything about how it feels can only come from the device.
+
+---
+
 ## V1: Toolchain
 
 - [ ] Unity 6 LTS installed with the android module

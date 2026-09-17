@@ -78,14 +78,41 @@ See `docs/milestones.md` for where we are. Work the lowest unfinished milestone.
 The telemetry and sequencing layer exists and needs no XR packages, so it compiles
 in a plain Unity project before any plugin work.
 
-- `Assets/Scripts/Telemetry/TraceData.cs` — Trace and Hop types
-- `Assets/Scripts/Telemetry/TraceLoader.cs` — parse, sort, validate
-- `Assets/Scripts/Telemetry/TracePlayer.cs` — playback, raises HopStarted / HopEnded
-- `Assets/Scripts/Rig/RigLayout.cs` — card slot positions as data
-- `Assets/Scripts/Rig/RigCardDisplay.cs` — binds hops to card visuals
-- `Assets/Scripts/Experience/ExperienceSequencer.cs` — the five act arc
-- `Assets/Tests/EditMode/TraceLoaderTests.cs` — needs the Test Framework and an asmdef
+Telemetry
+- `Telemetry/TraceData.cs` — Trace and Hop types
+- `Telemetry/TraceLoader.cs` — parse, sort, validate
+- `Telemetry/TracePlayer.cs` — playback, raises HopStarted / HopEnded
 
-Visuals subscribe to TracePlayer events. Playback logic never touches Transforms
-directly. Keep that split: it is what lets the whole request path be tested in a flat
-desktop scene before a headset is involved.
+Rig
+- `Rig/RigLayout.cs` — card slot positions as data
+- `Rig/CardLoadState.cs` — per card load, plain C#, no Transforms
+- `Rig/RigCardDisplay.cs` — turns that state into card visuals
+- `Rig/AssemblyStep.cs`, `Rig/AssemblySequence.cs` — the build order as data
+- `Rig/AssemblyTimeline.cs` — which step is running, plain C#
+
+Experience
+- `Experience/ExperienceSequencer.cs` — the five act arc
+- `Experience/AssemblyPlayer.cs` — moves parts from tray to socket
+- `Experience/SystemGraph.cs` — system view topology as data
+- `Experience/SystemRouteState.cs` — where the request is, plain C#
+- `Experience/SystemViewDisplay.cs` — draws nodes and the travelling pulse
+- `Experience/NarrationTrack.cs` — narration lines as data, keyed by cue
+- `Experience/NarrationDirector.cs` — picks the line for what is happening
+
+Data, in `Assets/Data/`
+- `RigLayout.asset`, `AssemblySequence.asset` (23 steps), `SystemGraph.asset`
+  (6 nodes), `NarrationTrack.asset` (12 lines), `sample-trace.json`
+
+Tests in `Assets/Tests/EditMode/` cover the loader, card lighting, the assembly
+timeline, hop routing and narration cues.
+
+Visuals subscribe to player events. Playback and state logic never touch Transforms
+directly, which is why every one of those rules is covered by an edit mode test with no
+scene. Keep that split.
+
+## Running the code without Unity
+
+`tools/headless-tests/run.sh` compiles everything against a `UnityEngine` shim and plays
+the whole arc. It catches field name typos in `.asset` files, which are invisible in the
+editor. It is a first pass, not a substitute for the Unity Test Runner, and it says
+nothing about frame rate. See `tools/headless-tests/README.md`.

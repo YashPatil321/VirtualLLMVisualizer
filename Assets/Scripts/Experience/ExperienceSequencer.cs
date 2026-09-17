@@ -28,8 +28,14 @@ namespace OCS.VR.Experience
         [Header("References")]
         public TracePlayer tracePlayer;
 
+        [Tooltip("Optional. When assigned, Act 2 lasts as long as the assembly sequence " +
+                 "rather than assemblyDuration.")]
+        public AssemblyPlayer assemblyPlayer;
+
         [Header("Act durations, seconds")]
         public float emptyBenchDuration = 20f;
+
+        [Tooltip("Fallback only. Ignored when an AssemblyPlayer is assigned.")]
         public float assemblyDuration = 90f;
         public float powerOnDuration = 15f;
         public float answerDuration = 20f;
@@ -38,18 +44,27 @@ namespace OCS.VR.Experience
         public bool playOnStart = true;
         public bool loop = false;
 
+        /// <summary>docs/experience-design.md section 2: under five minutes, unattended.</summary>
+        public const float MaxRuntimeSeconds = 300f;
+
         public event Action<Act> ActStarted;
         public event Action<Act> ActEnded;
 
         Act _current = Act.None;
         Coroutine _run;
         bool _traceDone;
+        bool _assemblyDone;
 
         public Act CurrentAct => _current;
 
+        public float AssemblySeconds =>
+            assemblyPlayer != null && assemblyPlayer.sequence != null
+                ? assemblyPlayer.sequence.TotalDurationSeconds
+                : assemblyDuration;
+
         /// <summary>Total runtime excluding the request act, which is trace length.</summary>
         public float FixedDurationSeconds =>
-            emptyBenchDuration + assemblyDuration + powerOnDuration + answerDuration;
+            emptyBenchDuration + AssemblySeconds + powerOnDuration + answerDuration;
 
         void Awake()
         {
@@ -58,16 +73,19 @@ namespace OCS.VR.Experience
             // request act waits on a flag that is already set. Awake, not Start:
             // component Start order is undefined and TracePlayer.Start would win.
             if (tracePlayer != null) tracePlayer.playOnStart = false;
+            if (assemblyPlayer != null) assemblyPlayer.playOnStart = false;
         }
 
         void OnEnable()
         {
             if (tracePlayer != null) tracePlayer.TraceFinished += OnTraceFinished;
+            if (assemblyPlayer != null) assemblyPlayer.Finished += OnAssemblyFinished;
         }
 
         void OnDisable()
         {
             if (tracePlayer != null) tracePlayer.TraceFinished -= OnTraceFinished;
+            if (assemblyPlayer != null) assemblyPlayer.Finished -= OnAssemblyFinished;
         }
 
         void Start()
@@ -85,9 +103,13 @@ namespace OCS.VR.Experience
             }
 
             float total = FixedDurationSeconds + traceSeconds;
-            if (total > 300f)
+            Debug.Log($"[Sequencer] Full runtime {total:F0}s " +
+                      $"(bench {emptyBenchDuration:F0} + assembly {AssemblySeconds:F0} + " +
+                      $"power {powerOnDuration:F0} + request {traceSeconds:F0} + answer {answerDuration:F0}).");
+
+            if (total > MaxRuntimeSeconds)
             {
-                Debug.LogWarning($"[Sequencer] Full runtime is {total:F0}s. The design target is under 300s. Tighten act durations.");
+                Debug.LogWarning($"[Sequencer] Full runtime is {total:F0}s. The design target is under {MaxRuntimeSeconds:F0}s. Tighten act durations.");
             }
         }
 
@@ -115,7 +137,18 @@ namespace OCS.VR.Experience
                 yield return new WaitForSeconds(emptyBenchDuration);
 
                 SetAct(Act.Assembly);
-                yield return new WaitForSeconds(assemblyDuration);
+                if (assemblyPlayer != null)
+                {
+                    // Wait on the sequence, not a timer, so retiming a step in the asset
+                    // never leaves the arc out of step with what the viewer is watching.
+                    _assemblyDone = false;
+                    assemblyPlayer.Play();
+                    while (!_assemblyDone) yield return null;
+                }
+                else
+                {
+                    yield return new WaitForSeconds(assemblyDuration);
+                }
 
                 SetAct(Act.PowerOn);
                 yield return new WaitForSeconds(powerOnDuration);
@@ -151,6 +184,11 @@ namespace OCS.VR.Experience
         void OnTraceFinished(Trace trace)
         {
             _traceDone = true;
+        }
+
+        void OnAssemblyFinished()
+        {
+            _assemblyDone = true;
         }
 
         void SetAct(Act next)
