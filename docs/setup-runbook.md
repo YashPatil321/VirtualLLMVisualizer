@@ -41,6 +41,21 @@ unity editors --installed --format json
 
 Use Unity 6 LTS. The editor control package in step 5 requires Unity 6.0 or newer, so an older LTS costs you the MCP workflow.
 
+### Pinned editor version
+
+**Unity 6.6 (6000.6.1f1)**, with the Android, Web and Windows modules.
+
+Everyone on the project opens the repo with this exact version. Unity rewrites
+`ProjectSettings/ProjectVersion.txt` on open, and two people on different editor
+versions will fight over that file in every commit.
+
+Open question, cheap now and expensive later: the Hub's own welcome banner refers to
+"Unity 6.7 LTS", which suggests 6.6 is a regular release rather than the LTS this
+project's hard constraints call for. Nothing has been built yet, so switching costs one
+download today. Once scenes and baked lighting exist it becomes a project upgrade with
+real risk. Worth checking the Hub's Official releases tab for the LTS label and settling
+it before V2.
+
 ---
 
 ## 3. Create the project
