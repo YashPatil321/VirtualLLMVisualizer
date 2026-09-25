@@ -27,6 +27,7 @@ namespace UnityEngine
         public static Vector3 operator +(Vector3 a, Vector3 b) => new Vector3(a.x + b.x, a.y + b.y, a.z + b.z);
         public static Vector3 operator -(Vector3 a, Vector3 b) => new Vector3(a.x - b.x, a.y - b.y, a.z - b.z);
         public static Vector3 operator *(Vector3 a, float s) => new Vector3(a.x * s, a.y * s, a.z * s);
+        public static Vector3 operator /(Vector3 a, float s) => new Vector3(a.x / s, a.y / s, a.z / s);
         public static Vector3 Lerp(Vector3 a, Vector3 b, float t)
         { t = Mathf.Clamp01(t); return new Vector3(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t); }
         public override string ToString() => $"({x:F3}, {y:F3}, {z:F3})";
@@ -171,6 +172,7 @@ namespace UnityEngine
 
     public class TextMesh : Object
     {
+        public Color color;
         public string text;
         public TextAnchor anchor;
         public int fontSize;

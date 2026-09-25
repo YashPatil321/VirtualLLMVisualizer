@@ -26,9 +26,29 @@ namespace OCS.VR.EditorTools
         const string MaterialsDir = "Assets/Art/Materials";
         const string ScenePath = "Assets/Scenes/Experience.unity";
 
-        // The rig sits on a bench. RigRoot is placed so that local y = BenchTop is the
-        // bench surface; RigLayout's card positions are relative to RigRoot.
-        const float BenchTop = -0.02f;
+        // Layout, in world metres, tuned by looking at the scene through the main camera.
+        // The viewer stands at (0, 1.6, -1.2) facing +z, the bench is 2m ahead, the parts
+        // table sits to its left and the frame waits on a stand to its right.
+        static readonly Vector3 RigPosition = new Vector3(0f, 0.9f, 0.8f);
+        const float BenchTopWorld = 0.88f;
+        const float TrayGap = 0.04f;
+        static readonly Vector3 FrameStandPosition = new Vector3(1.2f, BenchTopWorld, 0.8f);
+
+        // The same bench surface in RigRoot's space, which is where sockets are placed.
+        // RigLayout's card positions are relative to RigRoot too.
+        const float BenchTop = BenchTopWorld - 0.9f;
+
+        // SystemViewDisplay rewrites node positions from SystemGraph.asset every frame, so
+        // moving nodes in the asset or the scene doesn't stick. The root transform is the
+        // lever: scale the graph down and drop it so it sits just behind and above the cards.
+        static readonly Vector3 SystemViewPosition = new Vector3(0f, 0.4f, 1.5f);
+        const float SystemViewScale = 0.6f;
+
+        // Subtitle line just above the front edge of the bench, below the cards, so it never
+        // covers the rig or the system view. Dark, because the floor and horizon behind it
+        // are near white.
+        static readonly Vector3 NarrationPosition = new Vector3(0f, 0.98f, 0.45f);
+        static readonly Color TextColour = new Color(0.1f, 0.12f, 0.15f);
 
         // Real sizes, metres, in Unity axes: x across, y up, z along. These match the
         // Blender models exactly, so placeholders and models are interchangeable.
@@ -76,9 +96,9 @@ namespace OCS.VR.EditorTools
             Camera cam = Camera.main;
             if (cam != null)
             {
-                // Standing eye height, far enough back to see the tray and the system view.
-                cam.transform.position = new Vector3(0f, 1.6f, -1.5f);
-                cam.transform.rotation = Quaternion.Euler(14f, 0f, 0f);
+                // Standing eye height, where the layout was judged from.
+                cam.transform.position = new Vector3(0f, 1.6f, -1.2f);
+                cam.transform.rotation = Quaternion.Euler(8f, 0f, 0f);
                 cam.name = "Main Camera (flat preview, XR rig replaces this)";
             }
 
@@ -88,7 +108,7 @@ namespace OCS.VR.EditorTools
 
             // ---------- bench and rig root ----------
             GameObject rigRoot = new GameObject("RigRoot");
-            rigRoot.transform.position = new Vector3(0f, 0.9f, 0.8f);
+            rigRoot.transform.position = RigPosition;
 
             GameObject bench = GameObject.CreatePrimitive(PrimitiveType.Cube);
             bench.name = "Bench";
@@ -99,8 +119,8 @@ namespace OCS.VR.EditorTools
 
             GameObject benchBase = GameObject.CreatePrimitive(PrimitiveType.Cube);
             benchBase.name = "Bench Base";
-            benchBase.transform.position = new Vector3(0f, 0.43f, 0.8f);
-            benchBase.transform.localScale = new Vector3(1.1f, 0.86f, 0.5f);
+            benchBase.transform.position = new Vector3(RigPosition.x, (BenchTopWorld - 0.06f) / 2f, RigPosition.z);
+            benchBase.transform.localScale = new Vector3(1.1f, BenchTopWorld - 0.06f, 0.5f);
             Paint(benchBase, "BenchDark");
 
             // ---------- parts, laid out on a tray table ----------
@@ -183,7 +203,12 @@ namespace OCS.VR.EditorTools
 
             // ---------- system view ----------
             GameObject systemView = new GameObject("SystemView");
-            systemView.transform.position = new Vector3(0f, 0f, 2.0f);
+            systemView.transform.position = SystemViewPosition;
+            systemView.transform.localScale = Vector3.one * SystemViewScale;
+
+            // Child sizes are divided by the root scale so markers, labels and the pulse stay
+            // their real size; only the spacing between nodes shrinks.
+            Vector3 markerScale = new Vector3(0.28f, 0.16f, 0.06f) / SystemViewScale;
 
             var markers = new Transform[graph.NodeCount];
             for (int i = 0; i < graph.NodeCount; i++)
@@ -194,26 +219,29 @@ namespace OCS.VR.EditorTools
                 marker.name = "Node " + node.nodeId;
                 marker.transform.SetParent(systemView.transform, false);
                 marker.transform.localPosition = node.position;
-                marker.transform.localScale = new Vector3(0.26f, 0.14f, 0.05f);
+                marker.transform.localScale = markerScale;
                 RemoveCollider(marker);
                 Paint(marker, "Node");
                 markers[i] = marker.transform;
 
                 GameObject label = new GameObject("Label " + node.nodeId);
-                label.transform.SetParent(systemView.transform, false);
-                label.transform.localPosition = node.position + new Vector3(0f, 0.13f, -0.03f);
-                label.transform.localScale = Vector3.one * 0.016f;
+                label.transform.SetParent(marker.transform, false);
+                label.transform.localPosition = new Vector3(0f, 1.4f, -0.6f);
+                // Undo the marker's non-uniform scale so the text isn't squashed.
+                label.transform.localScale = new Vector3(1f / markerScale.x, 1f / markerScale.y, 1f / markerScale.z)
+                                             * (0.02f / SystemViewScale);
                 TextMesh text = label.AddComponent<TextMesh>();
                 text.text = node.DisplayLabel;
                 text.anchor = TextAnchor.MiddleCenter;
-                text.fontSize = 80;
+                text.fontSize = 90;
                 text.characterSize = 0.5f;
+                text.color = TextColour;
             }
 
             GameObject pulse = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             pulse.name = "Pulse";
             pulse.transform.SetParent(systemView.transform, false);
-            pulse.transform.localScale = Vector3.one * 0.07f;
+            pulse.transform.localScale = Vector3.one * (0.09f / SystemViewScale);
             RemoveCollider(pulse);
             Paint(pulse, "Pulse");
 
@@ -225,14 +253,15 @@ namespace OCS.VR.EditorTools
 
             // ---------- narration ----------
             GameObject narrationGo = new GameObject("Narration");
-            narrationGo.transform.position = new Vector3(0f, 1.32f, 0.55f);
-            narrationGo.transform.localScale = Vector3.one * 0.014f;
+            narrationGo.transform.position = NarrationPosition;
+            narrationGo.transform.localScale = Vector3.one * 0.02f;
 
             TextMesh narrationText = narrationGo.AddComponent<TextMesh>();
             narrationText.text = string.Empty;
             narrationText.anchor = TextAnchor.MiddleCenter;
-            narrationText.fontSize = 80;
+            narrationText.fontSize = 90;
             narrationText.characterSize = 0.5f;
+            narrationText.color = TextColour;
 
             NarrationDirector director = experience.AddComponent<NarrationDirector>();
             director.track = track;
@@ -266,6 +295,12 @@ namespace OCS.VR.EditorTools
             EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
             EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene(), ScenePath);
             AssetDatabase.SaveAssets();
+
+            // Reload what was just saved. This project enters Play mode without reloading
+            // the scene, and pressing Play on the freshly built in-memory scene came up
+            // with some data asset fields null (seen on sequence, layout and graph), which
+            // leaves the arc stuck in Assembly. The scene loaded from disk plays correctly.
+            EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
 
             string art = modelsUsed > 0
                 ? modelsUsed + " parts from " + ModelsDir
@@ -360,52 +395,115 @@ namespace OCS.VR.EditorTools
         }
 
         /// <summary>
-        /// Shelf packs every part onto a tray table to the viewer's left, in build order,
-        /// so nothing overlaps and the viewer can see the whole kit before assembly.
+        /// Which tray row a part waits in, front (nearest the viewer) to back, so tall cards
+        /// never hide the flat parts behind them. -1 means it doesn't go on the tray.
+        /// </summary>
+        static int TrayRowFor(PartKind kind)
+        {
+            switch (kind)
+            {
+                case PartKind.Riser:
+                case PartKind.Cable:
+                case PartKind.Fan:         return 0;
+                case PartKind.Motherboard:
+                case PartKind.Cpu:
+                case PartKind.Ram:
+                case PartKind.Psu:         return 1;
+                case PartKind.Gpu:         return 2;
+                default:                   return -1;
+            }
+        }
+
+        /// <summary>
+        /// Small parts wait on a table left of the bench, in rows so none overlap. The frame
+        /// is too big for the table, so it waits on a stand to the right and slides across
+        /// onto the bench at the same height. Returns the tray transform.
         /// </summary>
         static Transform LayOutTray(AssemblySequence sequence, Dictionary<string, GameObject> partObjects, Transform partsParent)
         {
-            const float trayWidth = 1.10f;
-            const float gap = 0.035f;
-            const float tableHeight = 0.75f;
-            const float margin = 0.05f;
-
-            var local = new Dictionary<string, Vector3>();
-            float x = 0f, z = 0f, rowDepth = 0f;
+            const int rows = 3;
+            var width = new float[rows];
+            var depth = new float[rows];
             foreach (AssemblyStep step in sequence.steps)
             {
+                int r = TrayRowFor(step.kind);
+                if (r < 0) continue;
                 Vector3 size = SizeFor(step);
-                if (x > 0f && x + size.x > trayWidth)
-                {
-                    z += rowDepth + gap;
-                    x = 0f;
-                    rowDepth = 0f;
-                }
-                local[step.stepId] = new Vector3(x + size.x / 2f, size.y / 2f, z + size.z / 2f);
-                x += size.x + gap;
-                if (size.z > rowDepth) rowDepth = size.z;
+                if (width[r] > 0f) width[r] += TrayGap;
+                width[r] += size.x;
+                depth[r] = Mathf.Max(depth[r], size.z);
             }
-            float trayDepth = z + rowDepth;
 
-            // Table corner nearest the viewer, left of the bench.
-            Vector3 corner = new Vector3(-0.75f - trayWidth - margin, tableHeight, 0.25f);
+            float trayWidth = 0f, trayDepth = 0f;
+            for (int r = 0; r < rows; r++)
+            {
+                if (depth[r] <= 0f) continue;
+                if (trayDepth > 0f) trayDepth += TrayGap;
+                trayWidth = Mathf.Max(trayWidth, width[r]);
+                trayDepth += depth[r];
+            }
+
+            var rowZ = new float[rows];
+            var cursor = new float[rows];
+            float z = -trayDepth * 0.5f;
+            for (int r = 0; r < rows; r++)
+            {
+                cursor[r] = -width[r] * 0.5f;
+                if (depth[r] <= 0f) continue;
+                rowZ[r] = z + depth[r] * 0.5f;
+                z += depth[r] + TrayGap;
+            }
+
+            GameObject tray = new GameObject("Tray");
+            tray.transform.position = new Vector3(
+                -0.6f - 0.05f - (trayWidth * 0.5f + 0.05f),
+                BenchTopWorld,
+                RigPosition.z);
 
             GameObject table = GameObject.CreatePrimitive(PrimitiveType.Cube);
             table.name = "Tray Table";
-            table.transform.position = corner + new Vector3(trayWidth / 2f, -tableHeight / 2f, trayDepth / 2f);
-            table.transform.localScale = new Vector3(trayWidth + 2f * margin, tableHeight, trayDepth + 2f * margin);
-            Paint(table, "BenchDark");
+            table.transform.SetParent(tray.transform, false);
+            table.transform.localPosition = new Vector3(0f, -0.03f, 0f);
+            table.transform.localScale = new Vector3(trayWidth + 0.1f, 0.06f, trayDepth + 0.1f);
+            Paint(table, "Bench");
+            Pedestal(tray.transform.position, trayWidth, trayDepth);
 
-            GameObject origin = new GameObject("Tray");
-            origin.transform.position = corner;
+            GameObject stand = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            stand.name = "Frame Stand";
+            stand.transform.position = FrameStandPosition + new Vector3(0f, -0.03f, 0f);
+            stand.transform.localScale = new Vector3(1.05f, 0.06f, 0.6f);
+            Paint(stand, "Bench");
+            Pedestal(FrameStandPosition, 0.95f, 0.5f);
 
             foreach (AssemblyStep step in sequence.steps)
             {
                 GameObject part = partObjects[step.stepId];
                 part.transform.SetParent(partsParent, true);
-                part.transform.position = corner + local[step.stepId];
+                Vector3 size = SizeFor(step);
+                int r = TrayRowFor(step.kind);
+                if (r >= 0)
+                {
+                    part.transform.position = tray.transform.TransformPoint(
+                        new Vector3(cursor[r] + size.x * 0.5f, size.y * 0.5f, rowZ[r]));
+                    cursor[r] += size.x + TrayGap;
+                }
+                else
+                {
+                    part.transform.position = FrameStandPosition + new Vector3(0f, size.y * 0.5f, 0f);
+                }
             }
-            return origin.transform;
+            return tray.transform;
+        }
+
+        /// <summary>A dark block from the floor up to a surface, so tables don't float.</summary>
+        static void Pedestal(Vector3 topCentre, float width, float depth)
+        {
+            GameObject block = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            block.name = "Pedestal";
+            float height = topCentre.y - 0.06f;
+            block.transform.position = new Vector3(topCentre.x, height / 2f, topCentre.z);
+            block.transform.localScale = new Vector3(width, height, depth);
+            Paint(block, "BenchDark");
         }
 
         // ----------------------------------------------------------- placeholders

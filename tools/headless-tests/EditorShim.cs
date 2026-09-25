@@ -43,6 +43,7 @@ namespace UnityEditor.SceneManagement
 {
     public enum NewSceneSetup { EmptyScene, DefaultGameObjects }
     public enum NewSceneMode { Single, Additive }
+    public enum OpenSceneMode { Single, Additive, AdditiveWithoutLoading }
     public struct Scene { }
 
     public static class EditorSceneManager
@@ -52,5 +53,6 @@ namespace UnityEditor.SceneManagement
         public static Scene GetActiveScene() => new Scene();
         public static void MarkSceneDirty(Scene s) { }
         public static bool SaveScene(Scene s, string path) => true;
+        public static Scene OpenScene(string path, OpenSceneMode mode) => new Scene();
     }
 }
