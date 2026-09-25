@@ -11,7 +11,17 @@ command -v mcs >/dev/null || { echo "mcs not found. Install it: sudo apt-get ins
 
 SCRIPTS=$(find "$ROOT/Assets/Scripts" -name '*.cs')
 TESTS=$(find "$ROOT/Assets/Tests" -name '*.cs')
+EDITOR=$(find "$ROOT/Assets/Editor" -name '*.cs' 2>/dev/null || true)
 
+echo "== editor scripts compile =="
+if [ -n "$EDITOR" ]; then
+  mcs -target:library -out:"$OUT/editor.dll" -langversion:latest "$HERE/UnityShim.cs" "$HERE/EditorShim.cs" $SCRIPTS $EDITOR
+  echo "  ok"
+else
+  echo "  none"
+fi
+
+echo
 echo "== edit mode tests =="
 mcs -out:"$OUT/tests.exe" -langversion:latest "$HERE/UnityShim.cs" "$HERE/RunTests.cs" $SCRIPTS $TESTS
 mono "$OUT/tests.exe"

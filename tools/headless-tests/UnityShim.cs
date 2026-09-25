@@ -15,6 +15,7 @@ namespace UnityEngine
         public Vector3(float x, float y, float z) { this.x = x; this.y = y; this.z = z; }
         public static Vector3 right => new Vector3(1, 0, 0);
         public static Vector3 zero => new Vector3(0, 0, 0);
+        public static Vector3 one => new Vector3(1, 1, 1);
         public Vector3 normalized
         {
             get
@@ -62,16 +63,56 @@ namespace UnityEngine
     public class GameObject : Object
     {
         bool _active = true;
+        public Transform transform;
+        // Paired explicitly. Letting each construct the other recurses forever.
+        public GameObject() { transform = new Transform(this); }
+        public GameObject(string n) : this() { name = n; }
+        internal GameObject(Transform t) { transform = t; }
         public void SetActive(bool v) { _active = v; }
         public bool activeSelf => _active;
+        public T AddComponent<T>() where T : new() => new T();
+        public static GameObject CreatePrimitive(PrimitiveType t) => new GameObject();
     }
 
     public class Transform : Object
     {
         public Vector3 localPosition;
         public Vector3 position;
-        public GameObject gameObject = new GameObject();
+        public Vector3 localScale = Vector3.one;
+        public Quaternion rotation;
+
+        GameObject _go;
+        public Transform() { }
+        internal Transform(GameObject go) { _go = go; }
+        public GameObject gameObject => _go ?? (_go = new GameObject(this));
+
+        public void SetParent(Transform p, bool worldPositionStays) { }
         public Vector3 TransformPoint(Vector3 local) => position + local;
+    }
+
+
+    public enum PrimitiveType { Cube, Sphere, Plane, Capsule, Cylinder, Quad }
+    public enum TextAnchor { UpperLeft, UpperCenter, UpperRight, MiddleLeft, MiddleCenter, MiddleRight, LowerLeft, LowerCenter, LowerRight }
+
+    public struct Quaternion
+    {
+        public static Quaternion Euler(float x, float y, float z) => new Quaternion();
+        public static Quaternion identity => new Quaternion();
+    }
+
+    public class TextMesh : Object
+    {
+        public string text;
+        public TextAnchor anchor;
+        public int fontSize;
+        public float characterSize;
+    }
+
+    public class Camera : Object
+    {
+        public Transform transform = new Transform();
+        public static Camera main => _main ?? (_main = new Camera());
+        static Camera _main;
     }
 
     public class AudioClip : Object { }
@@ -87,7 +128,9 @@ namespace UnityEngine
     public class MonoBehaviour : Object
     {
         public Transform transform = new Transform();
-        public GameObject gameObject = new GameObject();
+        GameObject _go;
+        public GameObject gameObject => _go ?? (_go = new GameObject());
+        public T GetComponent<T>() where T : class => null;
         public static List<Coroutine> Routines = new List<Coroutine>();
         public static float Now;
         public Coroutine StartCoroutine(IEnumerator e)
