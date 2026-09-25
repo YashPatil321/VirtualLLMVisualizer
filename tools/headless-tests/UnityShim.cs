@@ -40,6 +40,7 @@ namespace UnityEngine
         public static int Max(int a, int b) => a > b ? a : b;
         public static float Max(float a, float b) => a > b ? a : b;
         public static float Lerp(float a, float b, float t) => a + (b - a) * Clamp01(t);
+        public static float Abs(float v) => v < 0f ? -v : v;
     }
 
     public static class Debug
@@ -56,7 +57,66 @@ namespace UnityEngine
         public static float time = 0f;
     }
 
-    public class Object { public string name = ""; }
+    public class Object
+    {
+        public string name = "";
+        public static void DestroyImmediate(Object o) { }
+        public static T FindFirstObjectByType<T>() where T : Object => null;
+    }
+
+    public struct Color
+    {
+        public float r, g, b, a;
+        public Color(float r, float g, float b, float a = 1f) { this.r = r; this.g = g; this.b = b; this.a = a; }
+        public static Color operator *(Color c, float f) => new Color(c.r * f, c.g * f, c.b * f, c.a * f);
+        public static Color black => new Color(0, 0, 0, 1);
+        public static Color white => new Color(1, 1, 1, 1);
+        public static Color yellow => new Color(1, 0.92f, 0.016f, 1);
+    }
+
+    public enum Space { World, Self }
+    public enum LightShadows { None, Hard, Soft }
+    public enum MaterialGlobalIlluminationFlags { None = 0, RealtimeEmissive = 1, BakedEmissive = 2, EmissiveIsBlack = 4 }
+
+    public class Shader : Object
+    {
+        public static int PropertyToID(string n) => n.GetHashCode();
+        public static Shader Find(string n) => new Shader();
+    }
+
+    public class Material : Object
+    {
+        public MaterialGlobalIlluminationFlags globalIlluminationFlags;
+        public Material(Shader s) { }
+        public void SetColor(string n, Color c) { }
+        public void SetFloat(string n, float f) { }
+        public void EnableKeyword(string k) { }
+    }
+
+    public class MaterialPropertyBlock
+    {
+        public readonly Dictionary<int, Color> Colors = new Dictionary<int, Color>();
+        public void SetColor(int id, Color c) { Colors[id] = c; }
+    }
+
+    public class Component : Object
+    {
+        public T GetComponent<T>() where T : class => null;
+    }
+
+    public class Renderer : Component
+    {
+        public Material sharedMaterial;
+        public MaterialPropertyBlock LastBlock;
+        public void GetPropertyBlock(MaterialPropertyBlock b) { }
+        public void SetPropertyBlock(MaterialPropertyBlock b) { LastBlock = b; }
+    }
+
+    public class Collider : Component { }
+    public class Light : Component { public LightShadows shadows; }
+
+    [AttributeUsage(AttributeTargets.Field)]
+    public class ColorUsageAttribute : Attribute { public ColorUsageAttribute(bool showAlpha, bool hdr) { } }
     public class TextAsset : Object { public string text; public TextAsset(string t) { text = t; } }
     public class ScriptableObject : Object { public static T CreateInstance<T>() where T : ScriptableObject, new() => new T(); }
 
@@ -71,6 +131,7 @@ namespace UnityEngine
         public void SetActive(bool v) { _active = v; }
         public bool activeSelf => _active;
         public T AddComponent<T>() where T : new() => new T();
+        public T GetComponent<T>() where T : class => null;
         public static GameObject CreatePrimitive(PrimitiveType t) => new GameObject();
     }
 
@@ -86,8 +147,16 @@ namespace UnityEngine
         internal Transform(GameObject go) { _go = go; }
         public GameObject gameObject => _go ?? (_go = new GameObject(this));
 
-        public void SetParent(Transform p, bool worldPositionStays) { }
+        public Quaternion localRotation;
+        public readonly List<Transform> Children = new List<Transform>();
+        public float RotatedDegrees;
+        public void SetParent(Transform p, bool worldPositionStays) { if (p != null) p.Children.Add(this); }
         public Vector3 TransformPoint(Vector3 local) => position + local;
+        public int childCount => Children.Count;
+        public Transform GetChild(int i) => Children[i];
+        public Transform Find(string n) { foreach (var c in Children) if (c.name == n) return c; return null; }
+        public void Rotate(Vector3 axis, float degrees, Space space) { RotatedDegrees += degrees; }
+        public T GetComponent<T>() where T : class => null;
     }
 
 

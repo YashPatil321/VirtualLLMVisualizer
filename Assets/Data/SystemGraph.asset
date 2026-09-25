@@ -16,24 +16,24 @@ MonoBehaviour:
   - nodeId: web-client
     displayName: "Client"
     hopType: 1
-    position: {x: -2.4, y: 1.6, z: 0.0}
+    position: {x: -1.5, y: 1.42, z: 0.3}
   - nodeId: ocs-broker
     displayName: "Broker"
     hopType: 2
-    position: {x: -1.2, y: 1.9, z: 0.0}
+    position: {x: -0.9, y: 1.56, z: 0.1}
   - nodeId: gpu-scheduler
     displayName: "Scheduler"
     hopType: 3
-    position: {x: 0.0, y: 2.1, z: 0.0}
+    position: {x: -0.3, y: 1.62, z: 0}
   - nodeId: mini-07
     displayName: "Mac Mini 07"
     hopType: 4
-    position: {x: 1.2, y: 1.9, z: 0.0}
+    position: {x: 0.3, y: 1.62, z: 0}
   - nodeId: rig-2
     displayName: "Rig 2"
     hopType: 5
-    position: {x: 2.4, y: 1.4, z: 0.0}
+    position: {x: 0.9, y: 1.56, z: 0.1}
   - nodeId: rig-1
     displayName: "Rig 1"
     hopType: 0
-    position: {x: 2.4, y: 2.2, z: 0.0}
+    position: {x: 1.5, y: 1.42, z: 0.3}

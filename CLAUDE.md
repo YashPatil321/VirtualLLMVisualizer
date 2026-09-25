@@ -89,6 +89,8 @@ Rig
 - `Rig/RigCardDisplay.cs` — turns that state into card visuals
 - `Rig/AssemblyStep.cs`, `Rig/AssemblySequence.cs` — the build order as data
 - `Rig/AssemblyTimeline.cs` — which step is running, plain C#
+- `Rig/CardVisualMath.cs` — fan speed and LED glow for a load, plain C#
+- `Rig/CardVisual.cs` — spins a card's fans and drives its LED
 
 Experience
 - `Experience/ExperienceSequencer.cs` — the five act arc
@@ -98,6 +100,16 @@ Experience
 - `Experience/SystemViewDisplay.cs` — draws nodes and the travelling pulse
 - `Experience/NarrationTrack.cs` — narration lines as data, keyed by cue
 - `Experience/NarrationDirector.cs` — picks the line for what is happening
+- `Experience/RigPower.cs` — powers the cards on in a ripple at Act 3
+
+Editor
+- `Editor/ExperienceSceneBuilder.cs` — OCS > Build Experience Scene. Uses models from
+  `Assets/Art/Models` when present, placeholders otherwise
+- `Editor/RigModelImportSettings.cs` — import settings for those models
+
+Models: `tools/blender/generate_rig_parts.py` builds them in Blender at real size. See
+`tools/blender/README.md`. Parts are centred on their origin, and card children must be
+named `Fan0`, `Fan1` and `LED`.
 
 Data, in `Assets/Data/`
 - `RigLayout.asset`, `AssemblySequence.asset` (23 steps), `SystemGraph.asset`

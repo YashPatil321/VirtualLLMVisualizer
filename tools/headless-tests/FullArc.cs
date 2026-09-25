@@ -78,8 +78,29 @@ public static class FullArc
         };
         var narrator = new NarrationDirector { track = track, sequencer = seq, assemblyPlayer = assembly, tracePlayer = player, narrateHops = true };
 
-        foreach (var c in new object[] { rigDisplay, sysView, assembly, narrator, seq }) Call(c, "Awake");
-        foreach (var c in new object[] { rigDisplay, sysView, narrator, seq }) Call(c, "OnEnable");
+        // Fans and LEDs, wired the way ExperienceSceneBuilder wires them.
+        var visuals = new CardVisual[8];
+        var fanT = new Transform[8];
+        var leds = new Renderer[8];
+        for (int i = 0; i < 8; i++)
+        {
+            fanT[i] = new Transform();
+            leds[i] = new Renderer();
+            visuals[i] = new CardVisual { fans = new[] { fanT[i] }, led = leds[i] };
+        }
+        rigDisplay.visuals = visuals;
+        var power = new RigPower { sequencer = seq, cards = visuals };
+        int emissionId = Shader.PropertyToID("_EmissionColor");
+        System.Func<int, float> glowOf = i =>
+        {
+            Color c;
+            if (leds[i].LastBlock == null || !leds[i].LastBlock.Colors.TryGetValue(emissionId, out c)) return 0f;
+            return c.g / visuals[i].ledColor.g;
+        };
+
+        foreach (var c in new object[] { rigDisplay, sysView, assembly, narrator, seq, power }) Call(c, "Awake");
+        foreach (var v in visuals) Call(v, "Awake");
+        foreach (var c in new object[] { rigDisplay, sysView, narrator, seq, power }) Call(c, "OnEnable");
 
         var acts = new List<(float t, Act a)>();
         seq.ActStarted += a => acts.Add((MonoBehaviour.Now, a));
@@ -88,7 +109,10 @@ public static class FullArc
         var steps = new List<(float t, string id)>();
         assembly.StepStarted += (s, i) => steps.Add((MonoBehaviour.Now, s.stepId));
 
-        foreach (var c in new object[] { player, assembly, rigDisplay, sysView, narrator, seq }) Call(c, "Start");
+        foreach (var c in new object[] { player, assembly, rigDisplay, sysView, narrator, seq, power }) Call(c, "Start");
+        float maxGlowBeforePower = 0f, fanDegreesBeforePower = 0f;
+        float peakGlowCard3 = 0f, peakGlowOthersDuringRequest = 0f;
+        float minIdleGlowAfterPower = 1f;
 
         // ---- run it at 72 fps ----
         float dt = 1f / 72f;
@@ -99,7 +123,28 @@ public static class FullArc
             MonoBehaviour.Now += dt; Time.time = MonoBehaviour.Now; Time.deltaTime = dt;
             Call(player, "Update"); Call(assembly, "Update");
             Call(rigDisplay, "Update"); Call(sysView, "Update"); Call(narrator, "Update");
+            foreach (var v in visuals) Call(v, "Update");
             MonoBehaviour.PumpCoroutines();
+
+            Act now = seq.CurrentAct;
+            if (now == Act.EmptyBench || now == Act.Assembly)
+            {
+                for (int i = 0; i < 8; i++)
+                {
+                    if (glowOf(i) > maxGlowBeforePower) maxGlowBeforePower = glowOf(i);
+                    if (fanT[i].RotatedDegrees > fanDegreesBeforePower) fanDegreesBeforePower = fanT[i].RotatedDegrees;
+                }
+            }
+            if (now == Act.Request)
+            {
+                if (glowOf(3) > peakGlowCard3) peakGlowCard3 = glowOf(3);
+                for (int i = 0; i < 8; i++)
+                {
+                    if (i == 3) continue;
+                    if (glowOf(i) > peakGlowOthersDuringRequest) peakGlowOthersDuringRequest = glowOf(i);
+                    if (glowOf(i) < minIdleGlowAfterPower) minIdleGlowAfterPower = glowOf(i);
+                }
+            }
 
             if (rigDisplay.LoadOf(3) > peakCard3) peakCard3 = rigDisplay.LoadOf(3);
             int busy = 0; for (int n = 0; n < graph.NodeCount; n++) if (sysView.GlowOf(n) > 0.5f) busy++;
@@ -115,6 +160,16 @@ public static class FullArc
         Console.WriteLine($"  narration lines shown : {narrated.Count}");
         Console.WriteLine($"  peak load on card 3   : {peakCard3:F2}");
         Console.WriteLine($"  total runtime         : {total:F0}s (budget {ExperienceSequencer.MaxRuntimeSeconds:F0}s)");
+
+        Console.WriteLine($"  glow before power on  : {maxGlowBeforePower:F2}   fan degrees before power on: {fanDegreesBeforePower:F0}");
+        Console.WriteLine($"  during the request    : card 3 peaks at {peakGlowCard3:F2}, other cards at most {peakGlowOthersDuringRequest:F2} (idle glow {minIdleGlowAfterPower:F2})");
+        float spun = 0f; for (int i = 0; i < 8; i++) spun += fanT[i].RotatedDegrees;
+        Console.WriteLine($"  fans turned           : {spun / 8f / 360f:F0} revolutions per card on average");
+        if (maxGlowBeforePower > 0.001f || fanDegreesBeforePower > 0.001f) { Console.WriteLine("  >>> BUG: cards glow or spin before power on."); problems++; }
+        if (peakGlowCard3 < 0.95f) { Console.WriteLine("  >>> BUG: card 3 does not reach full glow while generating."); problems++; }
+        if (peakGlowOthersDuringRequest > 0.2f) { Console.WriteLine("  >>> BUG: another card glows as if it were working."); problems++; }
+        if (minIdleGlowAfterPower < 0.05f) { Console.WriteLine("  >>> BUG: powered cards are dark when idle."); problems++; }
+        if (spun <= 0f) { Console.WriteLine("  >>> BUG: fans never turned."); problems++; }
 
         if (steps.Count != sequence.StepCount) { Console.WriteLine("  >>> BUG: not every assembly step played."); problems++; }
         if (peakCard3 < 0.9f) { Console.WriteLine("  >>> BUG: card 3 never lit properly."); problems++; }

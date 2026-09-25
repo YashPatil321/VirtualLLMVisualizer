@@ -11,6 +11,31 @@ namespace UnityEditor
     {
         public static T LoadAssetAtPath<T>(string path) where T : UnityEngine.Object => null;
         public static void Refresh() { }
+        public static void SaveAssets() { }
+        public static void CreateAsset(UnityEngine.Object o, string path) { }
+        public static bool IsValidFolder(string path) => true;
+        public static string CreateFolder(string parent, string name) => "";
+    }
+
+    public static class PrefabUtility
+    {
+        public static UnityEngine.Object InstantiatePrefab(UnityEngine.Object o) => new UnityEngine.GameObject();
+    }
+
+    public enum ModelImporterAnimationType { None, Legacy, Generic, Human }
+
+    public class AssetImporter : UnityEngine.Object { }
+
+    public class ModelImporter : AssetImporter
+    {
+        public bool generateSecondaryUV, importCameras, importLights, importAnimation, isReadable, preserveHierarchy;
+        public ModelImporterAnimationType animationType;
+    }
+
+    public class AssetPostprocessor
+    {
+        public string assetPath = "";
+        public AssetImporter assetImporter;
     }
 }
 

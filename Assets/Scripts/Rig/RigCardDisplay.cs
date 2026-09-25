@@ -22,6 +22,13 @@ namespace OCS.VR.Rig
         [Tooltip("Card visuals, index 0 to 7. Leave empty to have them placed from layout at Start.")]
         public Transform[] cards;
 
+        [Tooltip("Fans and LED glow per card, index 0 to 7. Optional.")]
+        public CardVisual[] visuals;
+
+        [Tooltip("Place and lift the card Transforms. Turn off when something else moves " +
+                 "them, such as AssemblyPlayer flying cards in from the tray.")]
+        public bool driveTransforms = true;
+
         [Header("Placeholder feedback")]
         [Tooltip("How far an active card lifts. Stand in for real emission until V7.")]
         public float activeLift = 0.02f;
@@ -56,7 +63,7 @@ namespace OCS.VR.Rig
 
         void Start()
         {
-            PlaceCardsFromLayout();
+            if (driveTransforms) PlaceCardsFromLayout();
         }
 
         void PlaceCardsFromLayout()
@@ -92,11 +99,15 @@ namespace OCS.VR.Rig
 
         void Update()
         {
-            if (cards == null) return;
-
             _state.Step(Time.deltaTime, lerpSpeed);
 
-            if (layout == null) return;
+            if (visuals != null)
+            {
+                for (int i = 0; i < visuals.Length && i < _state.CardCount; i++)
+                    if (visuals[i] != null) visuals[i].SetLoad(_state.Current(i));
+            }
+
+            if (!driveTransforms || cards == null || layout == null) return;
 
             for (int i = 0; i < cards.Length && i < _state.CardCount; i++)
             {

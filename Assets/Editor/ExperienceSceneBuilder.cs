@@ -11,18 +11,34 @@ namespace OCS.VR.EditorTools
     /// <summary>
     /// Builds the whole experience scene from the data assets, in one menu click.
     ///
-    /// Everything here is placeholder geometry: primitives standing in for the rig and
-    /// the system view, exactly what docs/experience-design.md calls for through V4.
-    /// Real art replaces the meshes at V7 and none of this wiring changes, because the
-    /// components bind to data assets rather than to specific models.
+    /// Uses the models in Assets/Art/Models when they exist (generate them with
+    /// tools/blender/generate_rig_parts.py) and falls back to placeholders built from
+    /// primitives when they don't. Both are real size and name their parts the same way,
+    /// so every component works the same with either.
     ///
-    /// Re-running it rebuilds the scene from scratch, so it stays disposable while the
-    /// layout is still being argued about.
+    /// Re-running it rebuilds the scene from scratch. The scene is disposable; this
+    /// script and the data assets are the source of truth.
     /// </summary>
     public static class ExperienceSceneBuilder
     {
         const string DataDir = "Assets/Data";
+        const string ModelsDir = "Assets/Art/Models";
+        const string MaterialsDir = "Assets/Art/Materials";
         const string ScenePath = "Assets/Scenes/Experience.unity";
+
+        // The rig sits on a bench. RigRoot is placed so that local y = BenchTop is the
+        // bench surface; RigLayout's card positions are relative to RigRoot.
+        const float BenchTop = -0.02f;
+
+        // Real sizes, metres, in Unity axes: x across, y up, z along. These match the
+        // Blender models exactly, so placeholders and models are interchangeable.
+        static readonly Vector3 CardSize = new Vector3(0.040f, 0.111f, 0.267f);
+        static readonly Vector3 FrameSize = new Vector3(0.720f, 0.300f, 0.400f);
+        static readonly Vector3 PsuSize = new Vector3(0.150f, 0.086f, 0.160f);
+        static readonly Vector3 BoardSize = new Vector3(0.305f, 0.0016f, 0.244f);
+        static readonly Vector3 RiserSize = new Vector3(0.040f, 0.0016f, 0.100f);
+
+        static readonly Dictionary<string, Material> Materials = new Dictionary<string, Material>();
 
         [MenuItem("OCS/Build Experience Scene")]
         public static void BuildScene()
@@ -48,40 +64,96 @@ namespace OCS.VR.EditorTools
             if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
             EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
 
-            // ---------- floor and camera ----------
+            CreateMaterials();
+            int modelsUsed = 0;
+
+            // ---------- room ----------
             GameObject floor = GameObject.CreatePrimitive(PrimitiveType.Plane);
             floor.name = "Floor";
             floor.transform.localScale = new Vector3(2f, 1f, 2f);
+            Paint(floor, "Floor");
 
             Camera cam = Camera.main;
             if (cam != null)
             {
-                // Roughly standing eye height, looking at the bench.
-                cam.transform.position = new Vector3(0f, 1.6f, -1.2f);
-                cam.transform.rotation = Quaternion.Euler(8f, 0f, 0f);
+                // Standing eye height, far enough back to see the tray and the system view.
+                cam.transform.position = new Vector3(0f, 1.6f, -1.5f);
+                cam.transform.rotation = Quaternion.Euler(14f, 0f, 0f);
                 cam.name = "Main Camera (flat preview, XR rig replaces this)";
             }
 
-            // ---------- rig ----------
+            // The template's light casts realtime shadows. CLAUDE.md: none until profiled.
+            Light sun = Object.FindFirstObjectByType<Light>();
+            if (sun != null) sun.shadows = LightShadows.None;
+
+            // ---------- bench and rig root ----------
             GameObject rigRoot = new GameObject("RigRoot");
             rigRoot.transform.position = new Vector3(0f, 0.9f, 0.8f);
 
             GameObject bench = GameObject.CreatePrimitive(PrimitiveType.Cube);
             bench.name = "Bench";
             bench.transform.SetParent(rigRoot.transform, false);
-            bench.transform.localPosition = new Vector3(0f, -0.05f, 0f);
             bench.transform.localScale = new Vector3(1.2f, 0.06f, 0.6f);
+            bench.transform.localPosition = new Vector3(0f, BenchTop - 0.03f, 0f);
+            Paint(bench, "Bench");
 
+            GameObject benchBase = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            benchBase.name = "Bench Base";
+            benchBase.transform.position = new Vector3(0f, 0.43f, 0.8f);
+            benchBase.transform.localScale = new Vector3(1.1f, 0.86f, 0.5f);
+            Paint(benchBase, "BenchDark");
+
+            // ---------- parts, laid out on a tray table ----------
+            var partObjects = new Dictionary<string, GameObject>();
+            var cardVisuals = new CardVisual[layout.cardCount];
             var cardTransforms = new Transform[layout.cardCount];
-            for (int i = 0; i < layout.cardCount; i++)
+
+            foreach (AssemblyStep step in sequence.steps)
             {
-                GameObject card = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                card.name = "Card " + i;
-                card.transform.SetParent(rigRoot.transform, false);
-                card.transform.localPosition = layout.GetCardLocalPosition(i);
-                // A 1070 is roughly 27cm x 11cm x 4cm.
-                card.transform.localScale = new Vector3(0.04f, 0.11f, 0.27f);
-                cardTransforms[i] = card.transform;
+                bool fromModel;
+                GameObject part = CreatePart(step, out fromModel);
+                if (fromModel) modelsUsed++;
+                part.name = step.DisplayName;
+                partObjects[step.stepId] = part;
+
+                if (step.kind == PartKind.Gpu && layout.IsValidIndex(step.cardIndex))
+                {
+                    cardTransforms[step.cardIndex] = part.transform;
+                    cardVisuals[step.cardIndex] = AddCardVisual(part);
+                }
+            }
+
+            GameObject parts = new GameObject("Parts");
+            Transform trayOrigin = LayOutTray(sequence, partObjects, parts.transform);
+
+            // ---------- sockets ----------
+            var bindings = new List<AssemblyPartBinding>(sequence.StepCount);
+            foreach (AssemblyStep step in sequence.steps)
+            {
+                GameObject part = partObjects[step.stepId];
+
+                GameObject traySlot = new GameObject("Tray " + step.stepId);
+                traySlot.transform.SetParent(trayOrigin, true);
+                traySlot.transform.position = part.transform.position;
+
+                Transform socket = null;
+                if (step.kind != PartKind.Gpu)
+                {
+                    // Cards take their socket from RigLayout inside AssemblyPlayer, so card
+                    // spacing stays one number in one asset. Everything else gets one here.
+                    GameObject s = new GameObject("Socket " + step.stepId);
+                    s.transform.SetParent(rigRoot.transform, false);
+                    s.transform.localPosition = SocketFor(step, layout);
+                    socket = s.transform;
+                }
+
+                bindings.Add(new AssemblyPartBinding
+                {
+                    stepId = step.stepId,
+                    part = part.transform,
+                    tray = traySlot.transform,
+                    socket = socket
+                });
             }
 
             // ---------- playback ----------
@@ -97,47 +169,10 @@ namespace OCS.VR.EditorTools
             cardDisplay.player = player;
             cardDisplay.layout = layout;
             cardDisplay.cards = cardTransforms;
-
-            // ---------- assembly ----------
-            GameObject tray = new GameObject("Tray");
-            tray.transform.position = new Vector3(-1.3f, 0.9f, 0.8f);
-
-            GameObject parts = new GameObject("Parts");
-            parts.transform.position = Vector3.zero;
-
-            var bindings = new List<AssemblyPartBinding>(sequence.StepCount);
-            for (int i = 0; i < sequence.StepCount; i++)
-            {
-                AssemblyStep step = sequence.steps[i];
-
-                GameObject traySlot = new GameObject("Tray " + step.stepId);
-                traySlot.transform.SetParent(tray.transform, false);
-                traySlot.transform.localPosition = new Vector3(0f, 0.02f * i, 0f);
-
-                GameObject part = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                part.name = step.DisplayName;
-                part.transform.SetParent(parts.transform, false);
-                part.transform.position = traySlot.transform.position;
-                part.transform.localScale = ScaleFor(step);
-
-                GameObject socket = null;
-                if (!step.TargetsCard)
-                {
-                    // Card steps get their socket from RigLayout instead, so spacing stays
-                    // a single number in one asset.
-                    socket = new GameObject("Socket " + step.stepId);
-                    socket.transform.SetParent(rigRoot.transform, false);
-                    socket.transform.localPosition = SocketFor(step);
-                }
-
-                bindings.Add(new AssemblyPartBinding
-                {
-                    stepId = step.stepId,
-                    part = part.transform,
-                    tray = traySlot.transform,
-                    socket = socket != null ? socket.transform : null
-                });
-            }
+            cardDisplay.visuals = cardVisuals;
+            // AssemblyPlayer moves the cards. Two things writing positions would fight.
+            cardDisplay.driveTransforms = false;
+            cardDisplay.activeLift = 0f;
 
             AssemblyPlayer assembly = experience.AddComponent<AssemblyPlayer>();
             assembly.sequence = sequence;
@@ -148,7 +183,7 @@ namespace OCS.VR.EditorTools
 
             // ---------- system view ----------
             GameObject systemView = new GameObject("SystemView");
-            systemView.transform.position = new Vector3(0f, 0f, 1.5f);
+            systemView.transform.position = new Vector3(0f, 0f, 2.0f);
 
             var markers = new Transform[graph.NodeCount];
             for (int i = 0; i < graph.NodeCount; i++)
@@ -159,25 +194,28 @@ namespace OCS.VR.EditorTools
                 marker.name = "Node " + node.nodeId;
                 marker.transform.SetParent(systemView.transform, false);
                 marker.transform.localPosition = node.position;
-                marker.transform.localScale = new Vector3(0.28f, 0.16f, 0.06f);
+                marker.transform.localScale = new Vector3(0.26f, 0.14f, 0.05f);
+                RemoveCollider(marker);
+                Paint(marker, "Node");
                 markers[i] = marker.transform;
 
                 GameObject label = new GameObject("Label " + node.nodeId);
-                label.transform.SetParent(marker.transform, false);
-                label.transform.localPosition = new Vector3(0f, 1.4f, -0.6f);
-                // Undo the marker's non-uniform scale so the text is not squashed.
-                label.transform.localScale = new Vector3(1f / 0.28f, 1f / 0.16f, 1f / 0.06f) * 0.02f;
+                label.transform.SetParent(systemView.transform, false);
+                label.transform.localPosition = node.position + new Vector3(0f, 0.13f, -0.03f);
+                label.transform.localScale = Vector3.one * 0.016f;
                 TextMesh text = label.AddComponent<TextMesh>();
                 text.text = node.DisplayLabel;
                 text.anchor = TextAnchor.MiddleCenter;
-                text.fontSize = 90;
+                text.fontSize = 80;
                 text.characterSize = 0.5f;
             }
 
             GameObject pulse = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             pulse.name = "Pulse";
             pulse.transform.SetParent(systemView.transform, false);
-            pulse.transform.localScale = Vector3.one * 0.09f;
+            pulse.transform.localScale = Vector3.one * 0.07f;
+            RemoveCollider(pulse);
+            Paint(pulse, "Pulse");
 
             SystemViewDisplay sysView = systemView.AddComponent<SystemViewDisplay>();
             sysView.player = player;
@@ -187,13 +225,13 @@ namespace OCS.VR.EditorTools
 
             // ---------- narration ----------
             GameObject narrationGo = new GameObject("Narration");
-            narrationGo.transform.position = new Vector3(0f, 1.15f, 0.7f);
-            narrationGo.transform.localScale = Vector3.one * 0.02f;
+            narrationGo.transform.position = new Vector3(0f, 1.32f, 0.55f);
+            narrationGo.transform.localScale = Vector3.one * 0.014f;
 
             TextMesh narrationText = narrationGo.AddComponent<TextMesh>();
             narrationText.text = string.Empty;
             narrationText.anchor = TextAnchor.MiddleCenter;
-            narrationText.fontSize = 90;
+            narrationText.fontSize = 80;
             narrationText.characterSize = 0.5f;
 
             NarrationDirector director = experience.AddComponent<NarrationDirector>();
@@ -219,53 +257,331 @@ namespace OCS.VR.EditorTools
 
             director.sequencer = sequencer;
 
+            RigPower power = experience.AddComponent<RigPower>();
+            power.sequencer = sequencer;
+            power.cards = cardVisuals;
+
             // ---------- save ----------
-            System.IO.Directory.CreateDirectory("Assets/Scenes");
+            EnsureFolder("Assets/Scenes");
             EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
             EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene(), ScenePath);
-            AssetDatabase.Refresh();
+            AssetDatabase.SaveAssets();
 
+            string art = modelsUsed > 0
+                ? modelsUsed + " parts from " + ModelsDir
+                : "placeholder parts (run tools/blender/generate_rig_parts.py for models)";
             Debug.Log($"[SceneBuilder] Built {ScenePath}: {layout.cardCount} cards, " +
-                      $"{sequence.StepCount} assembly parts, {graph.NodeCount} system nodes. " +
-                      $"Press Play to watch the arc on a flat screen.");
+                      $"{sequence.StepCount} assembly steps, {graph.NodeCount} system nodes, {art}. " +
+                      "Press Play to watch the arc on a flat screen.");
+        }
+
+        // ------------------------------------------------------------------ parts
+
+        static GameObject CreatePart(AssemblyStep step, out bool fromModel)
+        {
+            string model = ModelFor(step.kind);
+            if (model != null)
+            {
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(ModelsDir + "/" + model + ".fbx");
+                if (prefab != null)
+                {
+                    fromModel = true;
+                    return (GameObject)PrefabUtility.InstantiatePrefab(prefab);
+                }
+            }
+
+            fromModel = false;
+            switch (step.kind)
+            {
+                case PartKind.Gpu:         return PlaceholderCard();
+                case PartKind.Chassis:     return PlaceholderFrame();
+                case PartKind.Psu:         return Block("PSU", PsuSize, "PSUBody");
+                case PartKind.Motherboard: return Block("Motherboard", BoardSize, "PCB");
+                case PartKind.Riser:       return Block("Riser", RiserSize, "PCB");
+                case PartKind.Cpu:         return Block("CPU", new Vector3(0.05f, 0.006f, 0.05f), "Steel");
+                case PartKind.Ram:         return Block("RAM", new Vector3(0.006f, 0.03f, 0.133f), "Shroud");
+                case PartKind.Cable:       return Block("Cable", new Vector3(0.02f, 0.02f, 0.30f), "BlackPlastic");
+                case PartKind.Fan:         return Block("Fans", new Vector3(0.03f, 0.12f, 0.12f), "BlackPlastic");
+                default:                   return Block("Part", Vector3.one * 0.1f, "Shroud");
+            }
+        }
+
+        static string ModelFor(PartKind kind)
+        {
+            switch (kind)
+            {
+                case PartKind.Gpu:         return "gpu_card";
+                case PartKind.Chassis:     return "frame";
+                case PartKind.Psu:         return "psu";
+                case PartKind.Motherboard: return "motherboard";
+                case PartKind.Riser:       return "riser";
+                default:                   return null;
+            }
+        }
+
+        static Vector3 SizeFor(AssemblyStep step)
+        {
+            switch (step.kind)
+            {
+                case PartKind.Gpu:         return CardSize;
+                case PartKind.Chassis:     return FrameSize;
+                case PartKind.Psu:         return PsuSize;
+                case PartKind.Motherboard: return BoardSize;
+                case PartKind.Riser:       return RiserSize;
+                case PartKind.Cpu:         return new Vector3(0.05f, 0.006f, 0.05f);
+                case PartKind.Ram:         return new Vector3(0.006f, 0.03f, 0.133f);
+                case PartKind.Cable:       return new Vector3(0.02f, 0.02f, 0.30f);
+                case PartKind.Fan:         return new Vector3(0.03f, 0.12f, 0.12f);
+                default:                   return Vector3.one * 0.1f;
+            }
+        }
+
+        /// <summary>Where each part ends up, relative to RigRoot. Parts sit on things.</summary>
+        static Vector3 SocketFor(AssemblyStep step, RigLayout layout)
+        {
+            float cardBottom = layout.firstCardOffset.y - CardSize.y / 2f;
+            switch (step.kind)
+            {
+                case PartKind.Chassis:     return new Vector3(0f, BenchTop + FrameSize.y / 2f, 0f);
+                case PartKind.Motherboard: return new Vector3(0f, BenchTop + 0.021f, 0.02f);
+                case PartKind.Cpu:         return new Vector3(0.02f, BenchTop + 0.027f, 0.07f);
+                case PartKind.Ram:         return new Vector3(0.10f, BenchTop + 0.037f, 0.05f);
+                case PartKind.Psu:         return new Vector3(-0.47f, BenchTop + PsuSize.y / 2f, 0.05f);
+                case PartKind.Cable:       return new Vector3(-0.20f, cardBottom + CardSize.y + 0.02f, -0.12f);
+                case PartKind.Fan:         return new Vector3(0.38f, BenchTop + 0.14f, 0f);
+                case PartKind.Riser:
+                    // Directly under its card, so the card visibly plugs into it.
+                    Vector3 card = layout.IsValidIndex(step.cardIndex)
+                        ? layout.GetCardLocalPosition(step.cardIndex)
+                        : Vector3.zero;
+                    return new Vector3(card.x, cardBottom - 0.012f, card.z);
+                default:                   return Vector3.zero;
+            }
+        }
+
+        /// <summary>
+        /// Shelf packs every part onto a tray table to the viewer's left, in build order,
+        /// so nothing overlaps and the viewer can see the whole kit before assembly.
+        /// </summary>
+        static Transform LayOutTray(AssemblySequence sequence, Dictionary<string, GameObject> partObjects, Transform partsParent)
+        {
+            const float trayWidth = 1.10f;
+            const float gap = 0.035f;
+            const float tableHeight = 0.75f;
+            const float margin = 0.05f;
+
+            var local = new Dictionary<string, Vector3>();
+            float x = 0f, z = 0f, rowDepth = 0f;
+            foreach (AssemblyStep step in sequence.steps)
+            {
+                Vector3 size = SizeFor(step);
+                if (x > 0f && x + size.x > trayWidth)
+                {
+                    z += rowDepth + gap;
+                    x = 0f;
+                    rowDepth = 0f;
+                }
+                local[step.stepId] = new Vector3(x + size.x / 2f, size.y / 2f, z + size.z / 2f);
+                x += size.x + gap;
+                if (size.z > rowDepth) rowDepth = size.z;
+            }
+            float trayDepth = z + rowDepth;
+
+            // Table corner nearest the viewer, left of the bench.
+            Vector3 corner = new Vector3(-0.75f - trayWidth - margin, tableHeight, 0.25f);
+
+            GameObject table = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            table.name = "Tray Table";
+            table.transform.position = corner + new Vector3(trayWidth / 2f, -tableHeight / 2f, trayDepth / 2f);
+            table.transform.localScale = new Vector3(trayWidth + 2f * margin, tableHeight, trayDepth + 2f * margin);
+            Paint(table, "BenchDark");
+
+            GameObject origin = new GameObject("Tray");
+            origin.transform.position = corner;
+
+            foreach (AssemblyStep step in sequence.steps)
+            {
+                GameObject part = partObjects[step.stepId];
+                part.transform.SetParent(partsParent, true);
+                part.transform.position = corner + local[step.stepId];
+            }
+            return origin.transform;
+        }
+
+        // ----------------------------------------------------------- placeholders
+
+        /// <summary>Two fans, a shroud, a backplate and an LED strip, named like the model.</summary>
+        static GameObject PlaceholderCard()
+        {
+            GameObject root = new GameObject("GPU (placeholder)");
+            Child(root, "Body", PrimitiveType.Cube, new Vector3(-0.002f, 0f, 0f),
+                  new Vector3(0.030f, CardSize.y - 0.004f, CardSize.z), "Shroud");
+            Child(root, "Backplate", PrimitiveType.Cube, new Vector3(0.0175f, 0f, 0f),
+                  new Vector3(0.002f, CardSize.y - 0.012f, CardSize.z - 0.01f), "ShroudAccent");
+            Child(root, "LED", PrimitiveType.Cube, new Vector3(-0.012f, CardSize.y / 2f - 0.002f, 0.02f),
+                  new Vector3(0.004f, 0.003f, CardSize.z * 0.55f), "LED");
+
+            for (int f = 0; f < 2; f++)
+            {
+                GameObject fan = new GameObject("Fan" + f);
+                fan.transform.SetParent(root.transform, false);
+                fan.transform.localPosition = new Vector3(-0.0185f, 0f, f == 0 ? -0.063f : 0.063f);
+
+                GameObject disc = Child(fan, "Disc", PrimitiveType.Cylinder, Vector3.zero,
+                                        new Vector3(0.082f, 0.002f, 0.082f), "FanBlack");
+                disc.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);   // cylinder axis to X
+
+                // Blades, so the spin is visible. A plain disc spinning looks still.
+                for (int b = 0; b < 3; b++)
+                {
+                    GameObject blade = Child(fan, "Blade", PrimitiveType.Cube, new Vector3(-0.003f, 0f, 0f),
+                                             new Vector3(0.002f, 0.074f, 0.012f), "ShroudAccent");
+                    blade.transform.localRotation = Quaternion.Euler(60f * b, 0f, 0f);
+                }
+            }
+            return root;
+        }
+
+        /// <summary>An open air frame: four posts, rails between them, and a card bar.</summary>
+        static GameObject PlaceholderFrame()
+        {
+            GameObject root = new GameObject("Frame (placeholder)");
+            float t = 0.02f;
+            float w = FrameSize.x, h = FrameSize.y, d = FrameSize.z;
+            float yb = -h / 2f + t / 2f, yt = h / 2f - t / 2f;
+            float[] xs = { -w / 2f + t / 2f, w / 2f - t / 2f };
+            float[] zs = { -d / 2f + t / 2f, d / 2f - t / 2f };
+
+            foreach (float x in xs)
+                foreach (float z in zs)
+                    Child(root, "Post", PrimitiveType.Cube, new Vector3(x, 0f, z), new Vector3(t, h, t), "Aluminium");
+            foreach (float z in zs)
+            {
+                Child(root, "Rail", PrimitiveType.Cube, new Vector3(0f, yb, z), new Vector3(w - 2f * t, t, t), "Aluminium");
+                Child(root, "Rail", PrimitiveType.Cube, new Vector3(0f, yt, z), new Vector3(w - 2f * t, t, t), "Aluminium");
+            }
+            foreach (float x in xs)
+                Child(root, "Rail", PrimitiveType.Cube, new Vector3(x, yb, 0f), new Vector3(t, t, d - 2f * t), "Aluminium");
+            return root;
+        }
+
+        static GameObject Block(string name, Vector3 size, string material)
+        {
+            GameObject root = new GameObject(name + " (placeholder)");
+            Child(root, "Body", PrimitiveType.Cube, Vector3.zero, size, material);
+            return root;
+        }
+
+        static GameObject Child(GameObject parent, string name, PrimitiveType type, Vector3 localPos, Vector3 localScale, string material)
+        {
+            GameObject go = GameObject.CreatePrimitive(type);
+            go.name = name;
+            go.transform.SetParent(parent.transform, false);
+            go.transform.localPosition = localPos;
+            go.transform.localScale = localScale;
+            RemoveCollider(go);
+            Paint(go, material);
+            return go;
+        }
+
+        static CardVisual AddCardVisual(GameObject card)
+        {
+            CardVisual visual = card.AddComponent<CardVisual>();
+
+            // The models' LED comes in with a plain imported material. Swap in the shared
+            // one with emission switched on, or the glow has nothing to drive.
+            Transform led = card.transform.Find("LED");
+            if (led != null)
+            {
+                Renderer r = led.GetComponent<Renderer>();
+                if (r != null) r.sharedMaterial = Materials["LED"];
+            }
+            return visual;
+        }
+
+        // -------------------------------------------------------------- materials
+
+        static void CreateMaterials()
+        {
+            Materials.Clear();
+            EnsureFolder(MaterialsDir);
+            Mat("Floor", new Color(0.30f, 0.31f, 0.33f), 0f, 0.2f);
+            Mat("Bench", new Color(0.42f, 0.30f, 0.20f), 0f, 0.35f);
+            Mat("BenchDark", new Color(0.18f, 0.18f, 0.19f), 0f, 0.3f);
+            Mat("Shroud", new Color(0.08f, 0.08f, 0.09f), 0.2f, 0.55f);
+            Mat("ShroudAccent", new Color(0.55f, 0.56f, 0.58f), 0.9f, 0.7f);
+            Mat("FanBlack", new Color(0.03f, 0.03f, 0.03f), 0f, 0.4f);
+            Mat("PCB", new Color(0.03f, 0.12f, 0.06f), 0f, 0.45f);
+            Mat("Steel", new Color(0.62f, 0.63f, 0.65f), 1f, 0.65f);
+            Mat("Aluminium", new Color(0.78f, 0.79f, 0.80f), 1f, 0.6f);
+            Mat("BlackPlastic", new Color(0.05f, 0.05f, 0.05f), 0f, 0.3f);
+            Mat("PSUBody", new Color(0.10f, 0.10f, 0.11f), 0.6f, 0.6f);
+            Mat("Node", new Color(0.20f, 0.30f, 0.45f), 0f, 0.5f);
+            Mat("LED", new Color(0.9f, 0.9f, 0.9f), 0f, 0.7f, emissive: true);
+            Mat("Pulse", new Color(0.9f, 0.9f, 1.0f), 0f, 0.7f, emissive: true, emission: new Color(1.2f, 1.4f, 2.0f));
+        }
+
+        /// <summary>
+        /// Reuses the asset if it exists, so rebuilding the scene doesn't churn material
+        /// GUIDs or undo tweaks someone made in the inspector.
+        /// </summary>
+        static void Mat(string name, Color color, float metallic, float smoothness,
+                        bool emissive = false, Color? emission = null)
+        {
+            string path = MaterialsDir + "/" + name + ".mat";
+            Material mat = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (mat == null)
+            {
+                Shader lit = Shader.Find("Universal Render Pipeline/Lit");
+                if (lit == null)
+                {
+                    Debug.LogError("[SceneBuilder] URP Lit shader not found. Is this a URP project?");
+                    return;
+                }
+                mat = new Material(lit);
+                mat.SetColor("_BaseColor", color);
+                mat.SetFloat("_Metallic", metallic);
+                mat.SetFloat("_Smoothness", smoothness);
+                if (emissive)
+                {
+                    // Emission must be switched on in the material itself. A property block
+                    // can change its colour at runtime but can't turn the feature on.
+                    mat.EnableKeyword("_EMISSION");
+                    mat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
+                    mat.SetColor("_EmissionColor", emission ?? Color.black);
+                }
+                AssetDatabase.CreateAsset(mat, path);
+            }
+            Materials[name] = mat;
+        }
+
+        static void Paint(GameObject go, string material)
+        {
+            Renderer r = go.GetComponent<Renderer>();
+            Material mat;
+            if (r != null && Materials.TryGetValue(material, out mat)) r.sharedMaterial = mat;
+        }
+
+        // ---------------------------------------------------------------- helpers
+
+        static void RemoveCollider(GameObject go)
+        {
+            Collider c = go.GetComponent<Collider>();
+            if (c != null) Object.DestroyImmediate(c);
+        }
+
+        static void EnsureFolder(string path)
+        {
+            if (AssetDatabase.IsValidFolder(path)) return;
+            string parent = System.IO.Path.GetDirectoryName(path).Replace('\\', '/');
+            string leaf = System.IO.Path.GetFileName(path);
+            EnsureFolder(parent);
+            AssetDatabase.CreateFolder(parent, leaf);
         }
 
         static T Load<T>(string file) where T : Object
         {
             return AssetDatabase.LoadAssetAtPath<T>(DataDir + "/" + file);
-        }
-
-        /// <summary>Rough real world sizes so the blockout reads at the right scale.</summary>
-        static Vector3 ScaleFor(AssemblyStep step)
-        {
-            switch (step.kind)
-            {
-                case PartKind.Chassis:     return new Vector3(1.0f, 0.04f, 0.5f);
-                case PartKind.Motherboard: return new Vector3(0.30f, 0.02f, 0.24f);
-                case PartKind.Cpu:         return new Vector3(0.05f, 0.01f, 0.05f);
-                case PartKind.Ram:         return new Vector3(0.13f, 0.03f, 0.01f);
-                case PartKind.Psu:         return new Vector3(0.15f, 0.09f, 0.14f);
-                case PartKind.Riser:       return new Vector3(0.03f, 0.02f, 0.06f);
-                case PartKind.Gpu:         return new Vector3(0.04f, 0.11f, 0.27f);
-                case PartKind.Cable:       return new Vector3(0.02f, 0.02f, 0.30f);
-                case PartKind.Fan:         return new Vector3(0.12f, 0.12f, 0.03f);
-                default:                   return Vector3.one * 0.1f;
-            }
-        }
-
-        static Vector3 SocketFor(AssemblyStep step)
-        {
-            switch (step.kind)
-            {
-                case PartKind.Chassis:     return new Vector3(0f, -0.02f, 0f);
-                case PartKind.Motherboard: return new Vector3(0f, 0.02f, 0f);
-                case PartKind.Cpu:         return new Vector3(0f, 0.04f, 0.05f);
-                case PartKind.Ram:         return new Vector3(0.10f, 0.05f, 0f);
-                case PartKind.Psu:         return new Vector3(-0.45f, 0.06f, 0f);
-                case PartKind.Cable:       return new Vector3(0f, 0.06f, -0.20f);
-                case PartKind.Fan:         return new Vector3(0.45f, 0.10f, 0f);
-                default:                   return Vector3.zero;
-            }
         }
     }
 }

@@ -14,6 +14,7 @@ Code complete and covered by tests, waiting on the editor:
 | Milestone | What is written | What still needs Unity |
 |---|---|---|
 | V3 | `AssemblySequence.asset` holds the 23 step build order. `AssemblyTimeline` plays it. | Part prefabs, tray and socket transforms, binding them in `AssemblyPlayer` |
+| V4 | `CardVisual` spins fans and drives LED glow from load. `RigPower` powers cards on in a ripple at Act 3. | Audio cue, and judging whether it reads as a moment on a headset |
 | V5 | `SystemGraph.asset` holds the six nodes. `SystemRouteState` routes hops to them. | Node markers, the pulse, world space labels |
 | V6 | `NarrationTrack.asset` holds 12 lines, plus one per assembly step. | A text component or AudioSource listening to `NarrationDirector` |
 
