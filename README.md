@@ -8,10 +8,10 @@ Built with Unity 6 (URP, Android) and Claude Code.
 
 ## Start here
 
-- **Learning to build something like this?** Read the lesson series:
-  [`docs/lessons/`](docs/lessons/README.md). Eight lessons covering architecture,
-  testing Unity code without Unity, project hygiene, Windows setup, connecting an AI
-  agent to the editor over MCP, and what worked and didn't.
+- **Want to build VR apps with Unity?** Read the beginner guide:
+  [`docs/vr-guide/`](docs/vr-guide/README.md). Ten chapters, from installing Unity to
+  running on a Quest, with grabbing, menus, locomotion, scripting, performance, and
+  using an AI coding agent with the editor.
 - **Working on this project?** Read [`CLAUDE.md`](CLAUDE.md), then
   [`docs/milestones.md`](docs/milestones.md).
 - **Setting up a machine?** [`docs/setup-runbook.md`](docs/setup-runbook.md).
