@@ -17,8 +17,19 @@ namespace OCS.VR.Experience
         public static Vector3 Position(Vector3 from, Vector3 to, float t, float arcHeight)
         {
             Vector3 up = new Vector3(0f, arcHeight, 0f);
-            Vector3 p1 = from + up;
-            Vector3 p2 = to + up;
+            return Via(from, to, t, up, up);
+        }
+
+        /// <summary>
+        /// The general curve: leaves along liftOut and arrives travelling against approachIn,
+        /// the offset from the socket it comes in from. A part that has to slide into the
+        /// frame's lower level comes in from the front, level, rather than dropping through
+        /// the rails above it.
+        /// </summary>
+        public static Vector3 Via(Vector3 from, Vector3 to, float t, Vector3 liftOut, Vector3 approachIn)
+        {
+            Vector3 p1 = from + liftOut;
+            Vector3 p2 = to + approachIn;
             float u = 1f - t;
             return from * (u * u * u) + p1 * (3f * u * u * t) + p2 * (3f * u * t * t) + to * (t * t * t);
         }

@@ -57,8 +57,14 @@ namespace OCS.VR.Experience
                  "The frame is too big to spin and never does.")]
         public float spinDegrees = 180f;
 
-        [Tooltip("How far past the socket a part runs before settling. 0 for none.")]
-        public float overshoot = 0.8f;
+        [Tooltip("How far past the socket a part runs before settling. 0 for none. At 0.5 a " +
+                 "part dips about a centimetre as it lands.")]
+        public float overshoot = 0.5f;
+
+        [Tooltip("Parts for the frame's lower level (board, CPU cooler, RAM, supplies) can't " +
+                 "drop in through the rails above them. They come round and slide in level " +
+                 "from this far in front.")]
+        public float frontEntry = 0.5f;
 
         public event Action Started;
         public event Action<AssemblyStep, int> StepStarted;
@@ -185,7 +191,12 @@ namespace OCS.VR.Experience
             }
 
             float eased = smoothTravel ? FlightPath.EaseOutBack(raw, overshoot) : raw;
-            binding.part.position = FlightPath.Position(from, to, eased, FlightPath.ArcFor(Vector3.Distance(from, to)));
+            float arcHeight = FlightPath.ArcFor(Vector3.Distance(from, to));
+            Vector3 lift = new Vector3(0f, arcHeight, 0f);
+            Vector3 approach = LowerLevel(step.kind)
+                ? -(rigRoot != null ? rigRoot.forward : Vector3.forward) * frontEntry
+                : lift;
+            binding.part.position = FlightPath.Via(from, to, eased, lift, approach);
 
             float spin = step.kind == PartKind.Chassis ? 0f : FlightPath.SpinAt(raw, spinDegrees);
             if (_baseRotation != null && index < _baseRotation.Length)
@@ -205,6 +216,9 @@ namespace OCS.VR.Experience
 
             return binding.part != null ? binding.part.position : Vector3.zero;
         }
+
+        static bool LowerLevel(PartKind kind) =>
+            kind == PartKind.Motherboard || kind == PartKind.Cpu || kind == PartKind.Ram || kind == PartKind.Psu;
 
         int FindBindingIndex(string stepId)
         {

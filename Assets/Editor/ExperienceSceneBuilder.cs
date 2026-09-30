@@ -341,7 +341,9 @@ namespace OCS.VR.EditorTools
             sysView.pulse = pulse.transform;
             sysView.busyLift = 0f;              // the accent light says busy; nothing moves
             sysView.nodeAccents = accents;
-            sysView.pulseOffset = new Vector3(0f, 0f, 0.03f);
+            // Far enough behind the panels that the pulse tucks in behind a node and its
+            // halo lights the panel from behind.
+            sysView.pulseOffset = new Vector3(0f, 0f, 0.08f);
 
             HopCaptions hopCaptions = systemView.AddComponent<HopCaptions>();
             hopCaptions.player = player;
@@ -566,7 +568,6 @@ namespace OCS.VR.EditorTools
             var main = ps.main;
             main.loop = true;
             main.playOnAwake = true;
-            main.duration = 5f;
             main.startLifetime = lifetime;
             main.startSpeed = speed;
             main.startSize = size;
@@ -999,9 +1000,10 @@ namespace OCS.VR.EditorTools
                 RoomSlab(env, "Ceiling Strip", new Vector3(x, HallHeight - 0.52f, zMid), new Vector3(0.06f, 0.03f, depth - 2f), "StripLight");
 
             // Signs. TextMesh ignores fog, so they stay bright at the far end like lit signage.
-            TextMesh far = Text("Sign Far", env.transform, new Vector3(0f, 5.3f, HallFar - 0.1f), 0.9f,
+            // High on the far wall, above the system view from where the viewer stands.
+            TextMesh far = Text("Sign Far", env.transform, new Vector3(0f, 6.2f, HallFar - 0.1f), 0.8f,
                                 TextAnchor.MiddleCenter, new Color(0.75f, 0.92f, 1f), "OCS  INTELLIGENCE  INFRASTRUCTURE");
-            RoomSlab(env, "Sign Far Line", new Vector3(0f, 4.55f, HallFar - 0.1f), new Vector3(14f, 0.04f, 0.02f), "StripLight");
+            RoomSlab(env, "Sign Far Line", new Vector3(0f, 5.6f, HallFar - 0.1f), new Vector3(13f, 0.04f, 0.02f), "NodeAccentLit");
             TextMesh near = Text("Sign Near", env.transform, new Vector3(0f, 5.0f, HallNear + 0.1f), 0.7f,
                                  TextAnchor.MiddleCenter, new Color(1f, 0.8f, 0.55f), "RIG 2   ·   8 × GTX 1070");
             near.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
@@ -1019,6 +1021,8 @@ namespace OCS.VR.EditorTools
             dustShape.enabled = true;
             dustShape.shapeType = ParticleSystemShapeType.Box;
             dustShape.scale = new Vector3(16f, 5f, 18f);
+            // A speck drifting past the viewer's face would otherwise fill their view.
+            dust.GetComponent<ParticleSystemRenderer>().maxParticleSize = 0.015f;
 
             foreach (Transform t in env.GetComponentsInChildren<Transform>())
                 if (t.GetComponent<ParticleSystem>() == null && t.GetComponent<LineRenderer>() == null) t.gameObject.isStatic = true;
@@ -1479,7 +1483,8 @@ namespace OCS.VR.EditorTools
             Mat("Dais", new Color(0.03f, 0.034f, 0.042f), 0.2f, 0.85f);
             Mat("Pillar", new Color(0.05f, 0.055f, 0.065f), 0.3f, 0.4f);
             Mat("RackBody", new Color(0.04f, 0.043f, 0.05f), 0.5f, 0.45f);
-            Mat("StripLight", new Color(0.8f, 0.9f, 1.0f), 0f, 0.5f, emissive: true, emission: new Color(0.7f, 1.0f, 1.4f));
+            // Dim and cool: the strips give the hall its shape without pulling the eye up.
+            Mat("StripLight", new Color(0.2f, 0.35f, 0.5f), 0f, 0.5f, emissive: true, emission: new Color(0.08f, 0.18f, 0.28f));
 
             // The custom shaders in Assets/Shaders.
             GlowMat("GlowBlob", 0f, 2f, Color.white);
@@ -1496,8 +1501,6 @@ namespace OCS.VR.EditorTools
             Mat("RoomFloor", new Color(0.035f, 0.038f, 0.045f), 0f, 0.55f);
             Mat("RoomWall", new Color(0.03f, 0.032f, 0.038f), 0f, 0.1f);
             Mat("FrameBlack", new Color(0.025f, 0.025f, 0.028f), 0.3f, 0.4f);   // matte anodised
-            // Sprites/Default blends by vertex colour, which is how lines and trails fade.
-            Mat("Trail", Color.white, 0f, 0f, shader: "Sprites/Default");
             Mat("TimelineSegment", new Color(0.06f, 0.08f, 0.1f), 0f, 0.5f, emissive: true, emission: new Color(0.04f, 0.05f, 0.06f));
         }
 

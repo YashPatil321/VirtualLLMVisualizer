@@ -35,3 +35,11 @@ echo
 echo "== request act, frame by frame =="
 mcs -out:"$OUT/sim.exe" -langversion:latest "$HERE/UnityShim.cs" "$HERE/Sim.cs" $SCRIPTS
 mono "$OUT/sim.exe" "$ROOT/Assets/Data/sample-trace.json"
+
+echo
+echo "== shaders compile (glslang, URP stand-ins) =="
+if command -v glslangValidator >/dev/null; then
+  python3 "$HERE/check_shaders.py" "$ROOT/Assets/Shaders"
+else
+  echo "  skipped: glslangValidator not installed (apt-get install glslang-tools)"
+fi

@@ -15,6 +15,8 @@ namespace UnityEngine
         public Vector3(float x, float y, float z) { this.x = x; this.y = y; this.z = z; }
         public static Vector3 right => new Vector3(1, 0, 0);
         public static Vector3 up => new Vector3(0, 1, 0);
+        public static Vector3 forward => new Vector3(0, 0, 1);
+        public static Vector3 operator -(Vector3 a) => new Vector3(-a.x, -a.y, -a.z);
         public static Vector3 down => new Vector3(0, -1, 0);
         public float sqrMagnitude => x * x + y * y + z * z;
         public static bool operator ==(Vector3 a, Vector3 b) => a.x == b.x && a.y == b.y && a.z == b.z;
@@ -224,6 +226,7 @@ namespace UnityEngine
         public GameObject gameObject => _go ?? (_go = new GameObject(this));
 
         public Quaternion localRotation;
+        public Vector3 forward => new Vector3(0, 0, 1);    // the shim never rotates anything
         public readonly List<Transform> Children = new List<Transform>();
         public float RotatedDegrees;
         public void SetParent(Transform p, bool worldPositionStays) { if (p != null) p.Children.Add(this); }

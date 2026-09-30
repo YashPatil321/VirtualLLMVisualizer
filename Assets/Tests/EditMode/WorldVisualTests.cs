@@ -26,6 +26,30 @@ namespace OCS.VR.Tests
         }
 
         [Test]
+        public void AFrontEntryArrivesLevel()
+        {
+            var from = new Vector3(-1.2f, 0.95f, 0.8f);
+            var to = new Vector3(0.27f, 0.96f, 0.72f);
+            var lift = new Vector3(0f, 0.5f, 0f);
+            var front = new Vector3(0f, 0f, -0.5f);
+            Assert.IsTrue(FlightPath.Via(from, to, 1f, lift, front) == to);
+            // Just before arriving it is level with the socket and in front of it.
+            Vector3 late = FlightPath.Via(from, to, 0.97f, lift, front);
+            Assert.AreEqual(to.y, late.y, 0.01f);
+            Assert.Less(late.z, to.z);
+        }
+
+        [Test]
+        public void TheLandingDipIsSmall()
+        {
+            // At 0.5 the ease runs about 0.8 % past the end: a centimetre on a 40 cm arc.
+            float peak = 0f;
+            for (float t = 0f; t <= 1f; t += 0.001f) peak = Mathf.Max(peak, FlightPath.EaseOutBack(t, 0.5f));
+            Assert.Less(peak, 1.01f);
+            Assert.Greater(peak, 1.005f);
+        }
+
+        [Test]
         public void LongerFlightsArcHigher()
         {
             Assert.AreEqual(0.15f, FlightPath.ArcFor(0.1f));

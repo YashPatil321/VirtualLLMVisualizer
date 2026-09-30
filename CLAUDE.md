@@ -115,12 +115,27 @@ Experience
 - `Experience/StageMotion.cs` — how far a stage change is along, from the act, plain C#
 - `Experience/StageDirector.cs` — sinks the empty tray and stand after assembly, grows
   the system view in at power on, brings the timeline in with the request
+- `Experience/FlightPath.cs` — the arc, overshoot and spin parts fly on, plain C#
+- `Experience/WorldPulse.cs` — the power on wave and the hall waking, plain C#
+- `Experience/WorldPulseDriver.cs` — hands those, and the generation ripples, to the
+  floor and rack shaders as global values once a frame
+- `Experience/ImpactBursts.cs` — rings and sparks as parts seat, at power on, on the
+  working card and at the client when the answer lands
+- `Experience/TokenStream.cs` — tokens flying off the working card into the answer panel
+- `Experience/AnswerText.cs`, `Experience/AnswerPanel.cs` — the prompt, and the answer
+  typing itself out word by word
+
+Shaders, in `Assets/Shaders/`, all unlit and Single Pass Instanced safe
+- `OCSGlow.shader` — additive soft light (blob, beam or ring): halos, beams, rings,
+  sparks, tokens, dust. How the scene glows with no post processing
+- `OCSGridFloor.shader` — the hall floor grid, the power on shockwave and the ripples
+- `OCSRackLights.shader` — a whole rack face of blinking server lights on one quad
 
 Editor
 - `Editor/ExperienceSceneBuilder.cs` — OCS > Build Experience Scene. Uses models from
   `Assets/Art/Models` when present, placeholders otherwise. Uses
-  `Assets/Prefabs/Environment.prefab` for the room when present, a default dark room
-  otherwise. OCS > Save Environment As Prefab saves the current room, so edits made to
+  `Assets/Prefabs/Environment.prefab` for the room when present, otherwise builds the
+  data hall: rack rows, grid floor, dais, pillars, signs, dust and fog. OCS > Save Environment As Prefab saves the current room, so edits made to
   it by hand survive rebuilds. Edits to anything else in the scene do not
 - `Editor/RigModelImportSettings.cs` — import settings for those models
 
@@ -136,8 +151,10 @@ Data, in `Assets/Data/`
   (5 nodes), `NarrationTrack.asset` (11 lines), `sample-trace.json`
 
 Tests in `Assets/Tests/EditMode/` cover the loader, card lighting, the assembly
-timeline, hop routing, narration cues, beam glow, readout text, timeline layout and
-stage timing.
+timeline, hop routing, narration cues, beam glow, readout text, timeline layout,
+stage timing, flight paths, the power on wave and the answer text.
+`tools/headless-tests/` also compiles the shaders' HLSL with glslang when it is
+installed; that catches syntax errors, not how they look.
 
 Visuals subscribe to player events. Playback and state logic never touch Transforms
 directly, which is why every one of those rules is covered by an edit mode test with no

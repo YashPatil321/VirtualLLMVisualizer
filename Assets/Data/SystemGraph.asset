@@ -28,7 +28,7 @@ MonoBehaviour:
   - nodeId: rig-2
     displayName: "Rig 2"
     hopType: 5
-    position: {x: -0.04, y: -0.3, z: -0.6}
+    position: {x: -0.04, y: -0.45, z: -0.6}
   - nodeId: rig-1
     displayName: "Rig 1"
     hopType: 0

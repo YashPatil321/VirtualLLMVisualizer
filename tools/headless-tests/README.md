@@ -5,16 +5,22 @@ before opening the editor, and for CI.
 
 ```bash
 sudo apt-get install -y mono-mcs      # once
+sudo apt-get install -y glslang-tools # once, optional: also checks the shaders
 ./tools/headless-tests/run.sh
 ```
 
-Three things run:
+Four things run:
 
 | | What it checks |
 |---|---|
 | `RunTests` | The real edit mode tests in `Assets/Tests/EditMode/`, unmodified |
 | `FullArc` | Loads the real `.asset` files and plays all five acts at 72 fps |
 | `Sim` | The request act alone, frame by frame, printing card 3's load |
+| `check_shaders.py` | Compiles the HLSL in `Assets/Shaders/` with glslang, fog on and off, against stand-ins for the URP functions they call. Syntax and types only |
+
+`FullArc` also checks the hall reacts: the power on wave runs and wakes the racks, the
+floor ripples while the card generates, every burst fires, tokens stream only during
+generation, and the answer types out to its last word.
 
 `FullArc` is the one that catches the expensive mistakes: it binds every key in every
 `.asset` to a real C# field and reports any that do not match. A typo'd field name in a

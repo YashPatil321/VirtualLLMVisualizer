@@ -13,7 +13,8 @@ A trace is one request, start to finish, as an ordered list of hops.
 ```json
 {
   "trace_id": "string",
-  "prompt_preview": "string, first ~40 chars, display only",
+  "prompt_preview": "string, the prompt or its start, display only",
+  "response_preview": "string, optional, the start of the answer, display only",
   "recorded_at": "ISO 8601 timestamp",
   "hops": [ Hop, ... ]
 }
