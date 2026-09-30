@@ -101,10 +101,14 @@ Experience
 - `Experience/NarrationTrack.cs` — narration lines as data, keyed by cue
 - `Experience/NarrationDirector.cs` — picks the line for what is happening
 - `Experience/RigPower.cs` — powers the cards on in a ripple at Act 3
+- `Experience/RoomAtmosphere.cs` — ambient light and background, carried by the room
 
 Editor
 - `Editor/ExperienceSceneBuilder.cs` — OCS > Build Experience Scene. Uses models from
-  `Assets/Art/Models` when present, placeholders otherwise
+  `Assets/Art/Models` when present, placeholders otherwise. Uses
+  `Assets/Prefabs/Environment.prefab` for the room when present, a default dark room
+  otherwise. OCS > Save Environment As Prefab saves the current room, so edits made to
+  it by hand survive rebuilds. Edits to anything else in the scene do not
 - `Editor/RigModelImportSettings.cs` — import settings for those models
 
 Models: `tools/blender/generate_rig_parts.py` builds them in Blender at real size. See

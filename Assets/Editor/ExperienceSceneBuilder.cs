@@ -25,6 +25,7 @@ namespace OCS.VR.EditorTools
         const string ModelsDir = "Assets/Art/Models";
         const string MaterialsDir = "Assets/Art/Materials";
         const string ScenePath = "Assets/Scenes/Experience.unity";
+        const string EnvironmentPrefabPath = "Assets/Prefabs/Environment.prefab";
 
         // Layout, in world metres, tuned by looking at the scene through the main camera.
         // The viewer stands at (0, 1.6, -1.2) facing +z, the bench is 2m ahead, the parts
@@ -88,10 +89,9 @@ namespace OCS.VR.EditorTools
             int modelsUsed = 0;
 
             // ---------- room ----------
-            GameObject floor = GameObject.CreatePrimitive(PrimitiveType.Plane);
-            floor.name = "Floor";
-            floor.transform.localScale = new Vector3(2f, 1f, 2f);
-            Paint(floor, "Floor");
+            // Your own room, if you've saved one with OCS > Save Environment As Prefab.
+            // Otherwise a default dim server room. Either way, rebuilding keeps the look.
+            bool customRoom = PlaceEnvironment();
 
             Camera cam = Camera.main;
             if (cam != null)
@@ -103,8 +103,18 @@ namespace OCS.VR.EditorTools
             }
 
             // The template's light casts realtime shadows. CLAUDE.md: none until profiled.
+            // Dimmed and cooled so the room reads as indoors and the LEDs stand out.
             Light sun = Object.FindFirstObjectByType<Light>();
-            if (sun != null) sun.shadows = LightShadows.None;
+            if (sun != null)
+            {
+                sun.shadows = LightShadows.None;
+                if (!customRoom)
+                {
+                    sun.intensity = 0.7f;
+                    sun.color = new Color(0.85f, 0.9f, 1f);
+                    sun.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
+                }
+            }
 
             // ---------- bench and rig root ----------
             GameObject rigRoot = new GameObject("RigRoot");
@@ -302,12 +312,104 @@ namespace OCS.VR.EditorTools
             // leaves the arc stuck in Assembly. The scene loaded from disk plays correctly.
             EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
 
+            string room = customRoom ? "your Environment prefab" : "the default room";
             string art = modelsUsed > 0
                 ? modelsUsed + " parts from " + ModelsDir
                 : "placeholder parts (run tools/blender/generate_rig_parts.py for models)";
             Debug.Log($"[SceneBuilder] Built {ScenePath}: {layout.cardCount} cards, " +
-                      $"{sequence.StepCount} assembly steps, {graph.NodeCount} system nodes, {art}. " +
+                      $"{sequence.StepCount} assembly steps, {graph.NodeCount} system nodes, {art}, {room}. " +
                       "Press Play to watch the arc on a flat screen.");
+        }
+
+        // ------------------------------------------------------------------- room
+
+        /// <summary>
+        /// Drops in Assets/Prefabs/Environment.prefab if it exists, otherwise builds the
+        /// default room. Returns true when the prefab was used.
+        /// </summary>
+        static bool PlaceEnvironment()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(EnvironmentPrefabPath);
+            if (prefab != null)
+            {
+                var env = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
+                RoomAtmosphere atmosphere = env.GetComponent<RoomAtmosphere>();
+                if (atmosphere != null) atmosphere.Apply();
+                return true;
+            }
+
+            BuildDefaultRoom();
+            return false;
+        }
+
+        /// <summary>
+        /// A dim server room around the play area: dark floor, walls and ceiling, and a few
+        /// glowing strips for atmosphere. The strips are emissive surfaces, not lights, so
+        /// they cost nothing at runtime. Everything sits under one "Environment" object so
+        /// it can be saved as a prefab and edited by hand.
+        /// </summary>
+        static void BuildDefaultRoom()
+        {
+            GameObject env = new GameObject("Environment");
+            RoomAtmosphere atmosphere = env.AddComponent<RoomAtmosphere>();
+            atmosphere.Apply();
+
+            // 10 x 10 m, 3.2 m high, centred a little ahead of the viewer so the bench,
+            // tray, frame stand and system view all sit well inside it.
+            const float halfWidth = 5f, height = 3.2f, wall = 0.1f;
+            float zNear = -4f, zFar = 6f;
+            float zMid = (zNear + zFar) / 2f, depth = zFar - zNear;
+
+            GameObject floor = GameObject.CreatePrimitive(PrimitiveType.Plane);
+            floor.name = "Floor";
+            floor.transform.SetParent(env.transform, false);
+            floor.transform.localPosition = new Vector3(0f, 0f, zMid);
+            floor.transform.localScale = new Vector3(halfWidth * 2f / 10f, 1f, depth / 10f);
+            Paint(floor, "RoomFloor");    // keeps its collider, for teleporting later
+
+            RoomSlab(env, "Ceiling", new Vector3(0f, height + wall / 2f, zMid), new Vector3(halfWidth * 2f, wall, depth), "RoomWall");
+            RoomSlab(env, "Wall Back", new Vector3(0f, height / 2f, zFar), new Vector3(halfWidth * 2f, height, wall), "RoomWall");
+            RoomSlab(env, "Wall Front", new Vector3(0f, height / 2f, zNear), new Vector3(halfWidth * 2f, height, wall), "RoomWall");
+            RoomSlab(env, "Wall Left", new Vector3(-halfWidth, height / 2f, zMid), new Vector3(wall, height, depth), "RoomWall");
+            RoomSlab(env, "Wall Right", new Vector3(halfWidth, height / 2f, zMid), new Vector3(wall, height, depth), "RoomWall");
+
+            // Light strips: two along the back wall, one above each side wall.
+            RoomSlab(env, "Strip Back Low", new Vector3(0f, 0.9f, zFar - wall), new Vector3(halfWidth * 1.6f, 0.03f, 0.02f), "StripLight");
+            RoomSlab(env, "Strip Back High", new Vector3(0f, 2.6f, zFar - wall), new Vector3(halfWidth * 1.6f, 0.03f, 0.02f), "StripLight");
+            RoomSlab(env, "Strip Left", new Vector3(-halfWidth + wall, 2.6f, zMid), new Vector3(0.02f, 0.03f, depth * 0.8f), "StripLight");
+            RoomSlab(env, "Strip Right", new Vector3(halfWidth - wall, 2.6f, zMid), new Vector3(0.02f, 0.03f, depth * 0.8f), "StripLight");
+        }
+
+        static void RoomSlab(GameObject parent, string name, Vector3 position, Vector3 size, string material)
+        {
+            GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            go.name = name;
+            go.transform.SetParent(parent.transform, false);
+            go.transform.localPosition = position;
+            go.transform.localScale = size;
+            RemoveCollider(go);
+            Paint(go, material);
+        }
+
+        /// <summary>
+        /// Saves the scene's Environment object as a prefab. After this, rebuilding the scene
+        /// uses your version of the room, so changes you make by hand are kept.
+        /// </summary>
+        [MenuItem("OCS/Save Environment As Prefab")]
+        public static void SaveEnvironmentPrefab()
+        {
+            GameObject env = GameObject.Find("Environment");
+            if (env == null)
+            {
+                Debug.LogError("[SceneBuilder] No object named Environment in the open scene. " +
+                               "Run OCS > Build Experience Scene first.");
+                return;
+            }
+
+            EnsureFolder("Assets/Prefabs");
+            PrefabUtility.SaveAsPrefabAssetAndConnect(env, EnvironmentPrefabPath, InteractionMode.UserAction);
+            Debug.Log("[SceneBuilder] Saved " + EnvironmentPrefabPath +
+                      ". Rebuilding the scene will now use it instead of the default room.");
         }
 
         // ------------------------------------------------------------------ parts
@@ -617,6 +719,9 @@ namespace OCS.VR.EditorTools
             Mat("Node", new Color(0.20f, 0.30f, 0.45f), 0f, 0.5f);
             Mat("LED", new Color(0.9f, 0.9f, 0.9f), 0f, 0.7f, emissive: true);
             Mat("Pulse", new Color(0.9f, 0.9f, 1.0f), 0f, 0.7f, emissive: true, emission: new Color(1.2f, 1.4f, 2.0f));
+            Mat("RoomFloor", new Color(0.07f, 0.075f, 0.085f), 0f, 0.45f);
+            Mat("RoomWall", new Color(0.10f, 0.105f, 0.12f), 0f, 0.2f);
+            Mat("StripLight", new Color(0.8f, 0.9f, 1.0f), 0f, 0.5f, emissive: true, emission: new Color(0.9f, 1.1f, 1.4f));
         }
 
         /// <summary>

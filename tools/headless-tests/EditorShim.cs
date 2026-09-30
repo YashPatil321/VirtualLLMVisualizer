@@ -17,9 +17,12 @@ namespace UnityEditor
         public static string CreateFolder(string parent, string name) => "";
     }
 
+    public enum InteractionMode { AutomatedAction, UserAction }
+
     public static class PrefabUtility
     {
         public static UnityEngine.Object InstantiatePrefab(UnityEngine.Object o) => new UnityEngine.GameObject();
+        public static UnityEngine.GameObject SaveAsPrefabAssetAndConnect(UnityEngine.GameObject go, string path, InteractionMode mode) => go;
     }
 
     public enum ModelImporterAnimationType { None, Legacy, Generic, Human }

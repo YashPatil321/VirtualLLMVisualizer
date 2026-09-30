@@ -102,6 +102,7 @@ namespace UnityEngine
 
     public class Component : Object
     {
+        public Transform transform = new Transform();
         public T GetComponent<T>() where T : class => null;
     }
 
@@ -114,7 +115,18 @@ namespace UnityEngine
     }
 
     public class Collider : Component { }
-    public class Light : Component { public LightShadows shadows; }
+    public class Light : Component { public LightShadows shadows; public float intensity; public Color color; }
+
+    public enum CameraClearFlags { Skybox = 1, SolidColor = 2, Depth = 3, Nothing = 4 }
+
+    public static class RenderSettings
+    {
+        public static Material skybox;
+        public static UnityEngine.Rendering.AmbientMode ambientMode;
+        public static Color ambientLight;
+    }
+
+    [AttributeUsage(AttributeTargets.Class)] public class ExecuteAlwaysAttribute : Attribute { }
 
     [AttributeUsage(AttributeTargets.Field)]
     public class ColorUsageAttribute : Attribute { public ColorUsageAttribute(bool showAlpha, bool hdr) { } }
@@ -134,6 +146,7 @@ namespace UnityEngine
         public T AddComponent<T>() where T : new() => new T();
         public T GetComponent<T>() where T : class => null;
         public static GameObject CreatePrimitive(PrimitiveType t) => new GameObject();
+        public static GameObject Find(string n) => null;
     }
 
     public class Transform : Object
@@ -181,6 +194,8 @@ namespace UnityEngine
 
     public class Camera : Object
     {
+        public CameraClearFlags clearFlags;
+        public Color backgroundColor;
         public Transform transform = new Transform();
         public static Camera main => _main ?? (_main = new Camera());
         static Camera _main;
@@ -384,4 +399,9 @@ namespace NUnit.Framework
             if (!ok) throw new AssertionException($"expected <{a}> but was <{b}>. {m}");
         }
     }
+}
+
+namespace UnityEngine.Rendering
+{
+    public enum AmbientMode { Skybox = 0, Trilight = 1, Flat = 3, Custom = 4 }
 }
