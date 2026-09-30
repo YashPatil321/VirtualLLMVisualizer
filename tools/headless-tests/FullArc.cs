@@ -81,12 +81,12 @@ public static class FullArc
         // Fans and LEDs, wired the way ExperienceSceneBuilder wires them.
         var visuals = new CardVisual[8];
         var fanT = new Transform[8];
-        var leds = new Renderer[8];
+        var ledR = new Renderer[8];
         for (int i = 0; i < 8; i++)
         {
             fanT[i] = new Transform();
-            leds[i] = new Renderer();
-            visuals[i] = new CardVisual { fans = new[] { fanT[i] }, led = leds[i] };
+            ledR[i] = new Renderer();
+            visuals[i] = new CardVisual { fans = new[] { fanT[i] }, leds = new[] { ledR[i] } };
         }
         rigDisplay.visuals = visuals;
         var power = new RigPower { sequencer = seq, cards = visuals };
@@ -94,8 +94,9 @@ public static class FullArc
         System.Func<int, float> glowOf = i =>
         {
             Color c;
-            if (leds[i].LastBlock == null || !leds[i].LastBlock.Colors.TryGetValue(emissionId, out c)) return 0f;
-            return c.g / visuals[i].ledColor.g;
+            if (ledR[i].LastBlock == null || !ledR[i].LastBlock.Colors.TryGetValue(emissionId, out c)) return 0f;
+            // Idle and hot colours share their green value, so green tracks glow alone.
+            return c.g / visuals[i].idleColor.g;
         };
 
         foreach (var c in new object[] { rigDisplay, sysView, assembly, narrator, seq, power }) Call(c, "Awake");
@@ -113,6 +114,15 @@ public static class FullArc
         float maxGlowBeforePower = 0f, fanDegreesBeforePower = 0f;
         float peakGlowCard3 = 0f, peakGlowOthersDuringRequest = 0f;
         float minIdleGlowAfterPower = 1f;
+        float peakHeatCard3 = 0f, peakHeatOthers = 0f;
+        System.Func<int, float> heatOf = i =>
+        {
+            Color c;
+            if (ledR[i].LastBlock == null || !ledR[i].LastBlock.Colors.TryGetValue(emissionId, out c) || c.g <= 0f) return 0f;
+            // Red over green rises from idle (0.2/0.9) to hot (2.4/0.9) as the card heats.
+            float idle = visuals[i].idleColor.r / visuals[i].idleColor.g, hot = visuals[i].hotColor.r / visuals[i].hotColor.g;
+            return (c.r / c.g - idle) / (hot - idle);
+        };
 
         // ---- run it at 72 fps ----
         float dt = 1f / 72f;
@@ -138,6 +148,8 @@ public static class FullArc
             if (now == Act.Request)
             {
                 if (glowOf(3) > peakGlowCard3) peakGlowCard3 = glowOf(3);
+                if (heatOf(3) > peakHeatCard3) peakHeatCard3 = heatOf(3);
+                for (int i = 0; i < 8; i++) if (i != 3 && heatOf(i) > peakHeatOthers) peakHeatOthers = heatOf(i);
                 for (int i = 0; i < 8; i++)
                 {
                     if (i == 3) continue;
@@ -163,6 +175,9 @@ public static class FullArc
 
         Console.WriteLine($"  glow before power on  : {maxGlowBeforePower:F2}   fan degrees before power on: {fanDegreesBeforePower:F0}");
         Console.WriteLine($"  during the request    : card 3 peaks at {peakGlowCard3:F2}, other cards at most {peakGlowOthersDuringRequest:F2} (idle glow {minIdleGlowAfterPower:F2})");
+        Console.WriteLine($"  colour heat           : card 3 reaches {peakHeatCard3:F2} (amber is 1), other cards at most {peakHeatOthers:F2}");
+        if (peakHeatCard3 < 0.95f) { Console.WriteLine("  >>> BUG: the working card doesn't shift to its hot colour."); problems++; }
+        if (peakHeatOthers > 0.05f) { Console.WriteLine("  >>> BUG: an idle card shifts colour."); problems++; }
         float spun = 0f; for (int i = 0; i < 8; i++) spun += fanT[i].RotatedDegrees;
         Console.WriteLine($"  fans turned           : {spun / 8f / 360f:F0} revolutions per card on average");
         if (maxGlowBeforePower > 0.001f || fanDegreesBeforePower > 0.001f) { Console.WriteLine("  >>> BUG: cards glow or spin before power on."); problems++; }

@@ -112,8 +112,8 @@ Editor
 - `Editor/RigModelImportSettings.cs` — import settings for those models
 
 Models: `tools/blender/generate_rig_parts.py` builds them in Blender at real size. See
-`tools/blender/README.md`. Parts are centred on their origin, and card children must be
-named `Fan0`, `Fan1` and `LED`.
+`tools/blender/README.md`. Parts are centred on their origin. Card children named `Fan0` and
+`Fan1` spin, and every child whose name starts with `LED` glows.
 
 Data, in `Assets/Data/`
 - `RigLayout.asset`, `AssemblySequence.asset` (23 steps), `SystemGraph.asset`

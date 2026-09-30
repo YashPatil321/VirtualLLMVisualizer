@@ -70,6 +70,11 @@ namespace UnityEngine
         public float r, g, b, a;
         public Color(float r, float g, float b, float a = 1f) { this.r = r; this.g = g; this.b = b; this.a = a; }
         public static Color operator *(Color c, float f) => new Color(c.r * f, c.g * f, c.b * f, c.a * f);
+        public static Color Lerp(Color a, Color b, float t)
+        {
+            t = t < 0f ? 0f : (t > 1f ? 1f : t);
+            return new Color(a.r + (b.r - a.r) * t, a.g + (b.g - a.g) * t, a.b + (b.b - a.b) * t, a.a + (b.a - a.a) * t);
+        }
         public static Color black => new Color(0, 0, 0, 1);
         public static Color white => new Color(1, 1, 1, 1);
         public static Color yellow => new Color(1, 0.92f, 0.016f, 1);
@@ -102,7 +107,8 @@ namespace UnityEngine
 
     public class Component : Object
     {
-        public Transform transform = new Transform();
+        Transform _t;
+        public Transform transform => _t ?? (_t = this as Transform ?? new Transform());
         public T GetComponent<T>() where T : class => null;
     }
 
@@ -115,6 +121,14 @@ namespace UnityEngine
     }
 
     public class Collider : Component { }
+
+    public class TrailRenderer : Renderer
+    {
+        public float time, widthMultiplier, minVertexDistance;
+        public Color startColor, endColor;
+        public UnityEngine.Rendering.ShadowCastingMode shadowCastingMode;
+        public bool receiveShadows;
+    }
     public class Light : Component { public LightShadows shadows; public float intensity; public Color color; }
 
     public enum CameraClearFlags { Skybox = 1, SolidColor = 2, Depth = 3, Nothing = 4 }
@@ -149,7 +163,7 @@ namespace UnityEngine
         public static GameObject Find(string n) => null;
     }
 
-    public class Transform : Object
+    public class Transform : Component
     {
         public Vector3 localPosition;
         public Vector3 position;
@@ -170,7 +184,6 @@ namespace UnityEngine
         public Transform GetChild(int i) => Children[i];
         public Transform Find(string n) { foreach (var c in Children) if (c.name == n) return c; return null; }
         public void Rotate(Vector3 axis, float degrees, Space space) { RotatedDegrees += degrees; }
-        public T GetComponent<T>() where T : class => null;
     }
 
 
@@ -404,4 +417,5 @@ namespace NUnit.Framework
 namespace UnityEngine.Rendering
 {
     public enum AmbientMode { Skybox = 0, Trilight = 1, Flat = 3, Custom = 4 }
+    public enum ShadowCastingMode { Off, On, TwoSided, ShadowsOnly }
 }

@@ -36,6 +36,16 @@ namespace OCS.VR.Tests
         }
 
         [Test]
+        public void HeatFollowsLoadOnlyWhilePowered()
+        {
+            // The working card shifts colour; idle cards and unpowered cards don't.
+            Assert.AreEqual(0f, CardVisualMath.Heat(false, 1f));
+            Assert.AreEqual(0f, CardVisualMath.Heat(true, 0f));
+            Assert.AreEqual(0.5f, CardVisualMath.Heat(true, 0.5f));
+            Assert.AreEqual(1f, CardVisualMath.Heat(true, 3f));
+        }
+
+        [Test]
         public void ApproachMovesByAtMostTheStepAndNeverOvershoots()
         {
             Assert.AreEqual(1f, CardVisualMath.Approach(0f, 10f, 1f));

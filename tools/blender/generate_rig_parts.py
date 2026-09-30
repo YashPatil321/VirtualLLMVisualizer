@@ -12,7 +12,8 @@ so Unity can drop it exactly where the scene builder's placeholder boxes used to
 
 Names matter to Unity:
     Fan0, Fan1   separate objects with their origin at the fan centre, so they can spin
-    LED          separate object with its own material, so the card can glow when busy
+    LED...       every object whose name starts with LED glows when the card is busy:
+                 LED (the light bar on the top edge) and LED_Ring0, LED_Ring1 (fan rings)
 
 Axes: built with Blender's X across the card's thickness, Y along its length and Z up.
 The exporter settings below turn that into Unity's X, Z and Y, so a card stands upright
@@ -73,6 +74,7 @@ def define_materials():
     material("Gold", (0.83, 0.64, 0.25), metallic=1.0, roughness=0.3)
     material("Steel", (0.62, 0.63, 0.65), metallic=1.0, roughness=0.35)
     material("Aluminium", (0.78, 0.79, 0.8), metallic=1.0, roughness=0.4)
+    material("FrameBlack", (0.03, 0.03, 0.035), metallic=0.8, roughness=0.35)   # anodised
     material("BlackPlastic", (0.05, 0.05, 0.05), roughness=0.7)
     material("PSUBody", (0.1, 0.1, 0.11), metallic=0.6, roughness=0.4)
     material("Label", (0.85, 0.85, 0.82), roughness=0.8)
@@ -199,13 +201,21 @@ def build_gpu_card():
     body.box((0.012, 0.022, 0.008), center=(0.008, 0.095, H / 2 + 0.004), mat="BlackPlastic")    # 8 pin power
     body.to_object(parent=root)
 
+    # Light bar across the top edge, where a real card has its glowing logo. It's the
+    # face the viewer looks down on, so it has to be wide enough to read from the bench.
+    # Stops short of the 8 pin connector at the far end.
     led = MeshBuilder("LED")
-    led.box((0.004, L * 0.55, 0.003), center=(-0.012, 0.02, H / 2 - 0.0015), mat="LED")
+    led.box((0.024, 0.160, 0.003), center=(-0.002, -0.020, H / 2 + 0.0015), mat="LED")
     led.to_object(parent=root)
 
     fan_r = 0.041
-    build_fan("Fan0", fan_r, root, (-0.0185, -0.063, 0.0))
-    build_fan("Fan1", fan_r, root, (-0.0185, 0.063, 0.0))
+    for i, y in enumerate((-0.063, 0.063)):
+        build_fan("Fan%d" % i, fan_r, root, (-0.0185, y, 0.0))
+        # A lit ring just outside each fan's frame. Separate from the fan so it doesn't
+        # spin, and so Unity can find it by name.
+        ring = MeshBuilder("LED_Ring%d" % i)
+        ring.ring(outer=fan_r + 0.004, inner=fan_r + 0.0005, depth=0.004, mat="LED", segments=40)
+        ring.to_object(parent=root, location=(-0.0185, y, 0.0))
     return root, (T, L, H)
 
 def build_psu():
@@ -265,13 +275,13 @@ def build_frame():
     # faces in the same place, and the renderer flickers between them.
     for x in xs:
         for y in ys:
-            body.box((t, t, H), center=(x, y, 0), mat="Aluminium")                  # posts, full height
+            body.box((t, t, H), center=(x, y, 0), mat="FrameBlack")                 # posts, full height
     for y in ys:
-        body.box((W - 2 * t, t, t), center=(0, y, zb), mat="Aluminium")             # long rails, between posts
-        body.box((W - 2 * t, t, t), center=(0, y, zt), mat="Aluminium")
+        body.box((W - 2 * t, t, t), center=(0, y, zb), mat="FrameBlack")            # long rails, between posts
+        body.box((W - 2 * t, t, t), center=(0, y, zt), mat="FrameBlack")
     for x in xs:
-        body.box((t, D - 2 * t, t), center=(x, 0, zb), mat="Aluminium")             # short rails, between posts
-    body.box((W - 2 * t, t, t), center=(0, 0.06, -0.04), mat="Aluminium")      # bar the cards rest on
+        body.box((t, D - 2 * t, t), center=(x, 0, zb), mat="FrameBlack")            # short rails, between posts
+    body.box((W - 2 * t, t, t), center=(0, 0.06, -0.04), mat="FrameBlack")     # bar the cards rest on
     body.to_object(parent=root)
     return root, (W, D, H)
 

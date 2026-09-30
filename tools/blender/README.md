@@ -5,7 +5,7 @@ size, and exports them as FBX files that Unity picks up automatically.
 
 | Part | Size (mm) | Triangles |
 |---|---|---|
-| `gpu_card` | 40 × 267 × 111, dual fan | 1,060 |
+| `gpu_card` | 40 × 267 × 111, dual fan, light bar and fan rings | 1,700 |
 | `psu` | 150 × 160 × 86, with fan grille | 584 |
 | `motherboard` | 305 × 244, ATX, with CPU, RAM and PCIe slots | 168 |
 | `riser` | 40 × 100, with an x16 slot | 36 |
@@ -42,8 +42,9 @@ It prints one line per part and writes five `.fbx` files to `Assets/Art/Models/`
 ## What the scene builder relies on
 
 - **Every part is centred on its origin**, so it drops in where the placeholders were.
-- **Card children are named `Fan0`, `Fan1` and `LED`.** `CardVisual` spins the fans about
-  their local X axis and drives the LED's glow. Rename them and the card goes still.
+- **Card children are named `Fan0`, `Fan1`, `LED`, `LED_Ring0` and `LED_Ring1`.**
+  `CardVisual` spins the fans about their local X axis and drives the glow on every child
+  whose name starts with `LED`. Rename them and the card goes still or dark.
 - **Axes:** the script builds with Blender's X across the card, Y along it and Z up. The
   exporter settings turn that into Unity's X, Z and Y, so parts arrive upright with no
   rotation.

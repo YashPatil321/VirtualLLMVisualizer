@@ -26,6 +26,16 @@ namespace OCS.VR.Rig
         }
 
         /// <summary>
+        /// How far the LED colour has shifted from its idle colour toward its hot colour,
+        /// 0 to 1. Follows load, so the working card visibly heats up while the others
+        /// stay cool. Off is 0, so a dark card doesn't carry a stale colour into power on.
+        /// </summary>
+        public static float Heat(bool powered, float load01)
+        {
+            return powered ? Clamp01(load01) : 0f;
+        }
+
+        /// <summary>
         /// Moves current toward target by at most maxDelta. Used so fans spin up and
         /// down instead of jumping, which reads as a machine rather than a state change.
         /// </summary>

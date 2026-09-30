@@ -255,6 +255,18 @@ namespace OCS.VR.EditorTools
             RemoveCollider(pulse);
             Paint(pulse, "Pulse");
 
+            // A short fading trail, so the request reads as something travelling rather than
+            // a dot teleporting between boxes. Width is in world metres.
+            TrailRenderer trail = pulse.AddComponent<TrailRenderer>();
+            trail.time = 0.45f;
+            trail.widthMultiplier = 0.03f;
+            trail.minVertexDistance = 0.01f;
+            trail.startColor = new Color(0.55f, 0.8f, 1f, 1f);
+            trail.endColor = new Color(0.55f, 0.8f, 1f, 0f);
+            trail.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            trail.receiveShadows = false;
+            if (Materials.ContainsKey("Trail")) trail.sharedMaterial = Materials["Trail"];
+
             SystemViewDisplay sysView = systemView.AddComponent<SystemViewDisplay>();
             sysView.player = player;
             sysView.graph = graph;
@@ -378,6 +390,20 @@ namespace OCS.VR.EditorTools
             RoomSlab(env, "Strip Back High", new Vector3(0f, 2.6f, zFar - wall), new Vector3(halfWidth * 1.6f, 0.03f, 0.02f), "StripLight");
             RoomSlab(env, "Strip Left", new Vector3(-halfWidth + wall, 2.6f, zMid), new Vector3(0.02f, 0.03f, depth * 0.8f), "StripLight");
             RoomSlab(env, "Strip Right", new Vector3(halfWidth - wall, 2.6f, zMid), new Vector3(0.02f, 0.03f, depth * 0.8f), "StripLight");
+
+            // Two server racks against the back wall, rows of status lights down their fronts.
+            // Outside the width of the system view, so they frame it without competing.
+            foreach (float x in new[] { -2.4f, 2.4f })
+            {
+                const float rackH = 2.0f, rackD = 0.9f;
+                float rackZ = zFar - wall - rackD / 2f - 0.05f;
+                RoomSlab(env, "Rack", new Vector3(x, rackH / 2f, rackZ), new Vector3(0.6f, rackH, rackD), "RackBody");
+                for (int row = 0; row < 10; row++)
+                {
+                    RoomSlab(env, "Rack Light", new Vector3(x - 0.08f, 0.3f + 0.16f * row, rackZ - rackD / 2f - 0.006f),
+                             new Vector3(0.30f, 0.012f, 0.01f), row % 3 == 0 ? "RackLedBlue" : "RackLedGreen");
+                }
+            }
         }
 
         static void RoomSlab(GameObject parent, string name, Vector3 position, Vector3 size, string material)
@@ -618,14 +644,24 @@ namespace OCS.VR.EditorTools
                   new Vector3(0.030f, CardSize.y - 0.004f, CardSize.z), "Shroud");
             Child(root, "Backplate", PrimitiveType.Cube, new Vector3(0.0175f, 0f, 0f),
                   new Vector3(0.002f, CardSize.y - 0.012f, CardSize.z - 0.01f), "ShroudAccent");
-            Child(root, "LED", PrimitiveType.Cube, new Vector3(-0.012f, CardSize.y / 2f - 0.002f, 0.02f),
-                  new Vector3(0.004f, 0.003f, CardSize.z * 0.55f), "LED");
+            // Same names and places as the Blender model: a light bar across the top edge,
+            // which is the face the viewer looks down on, and a ring around each fan.
+            Child(root, "LED", PrimitiveType.Cube, new Vector3(-0.002f, CardSize.y / 2f + 0.0015f, -0.02f),
+                  new Vector3(0.024f, 0.003f, 0.16f), "LED");
 
             for (int f = 0; f < 2; f++)
             {
+                Vector3 fanPos = new Vector3(-0.0185f, 0f, f == 0 ? -0.063f : 0.063f);
+
+                // A disc just larger than the fan, sitting behind it, so only a lit rim
+                // shows around the blades. Not a child of the fan, so it doesn't spin.
+                GameObject ring = Child(root, "LED_Ring" + f, PrimitiveType.Cylinder, fanPos + new Vector3(0.0015f, 0f, 0f),
+                                        new Vector3(0.090f, 0.0008f, 0.090f), "LED");
+                ring.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
+
                 GameObject fan = new GameObject("Fan" + f);
                 fan.transform.SetParent(root.transform, false);
-                fan.transform.localPosition = new Vector3(-0.0185f, 0f, f == 0 ? -0.063f : 0.063f);
+                fan.transform.localPosition = fanPos;
 
                 GameObject disc = Child(fan, "Disc", PrimitiveType.Cylinder, Vector3.zero,
                                         new Vector3(0.082f, 0.002f, 0.082f), "FanBlack");
@@ -654,14 +690,14 @@ namespace OCS.VR.EditorTools
 
             foreach (float x in xs)
                 foreach (float z in zs)
-                    Child(root, "Post", PrimitiveType.Cube, new Vector3(x, 0f, z), new Vector3(t, h, t), "Aluminium");
+                    Child(root, "Post", PrimitiveType.Cube, new Vector3(x, 0f, z), new Vector3(t, h, t), "FrameBlack");
             foreach (float z in zs)
             {
-                Child(root, "Rail", PrimitiveType.Cube, new Vector3(0f, yb, z), new Vector3(w - 2f * t, t, t), "Aluminium");
-                Child(root, "Rail", PrimitiveType.Cube, new Vector3(0f, yt, z), new Vector3(w - 2f * t, t, t), "Aluminium");
+                Child(root, "Rail", PrimitiveType.Cube, new Vector3(0f, yb, z), new Vector3(w - 2f * t, t, t), "FrameBlack");
+                Child(root, "Rail", PrimitiveType.Cube, new Vector3(0f, yt, z), new Vector3(w - 2f * t, t, t), "FrameBlack");
             }
             foreach (float x in xs)
-                Child(root, "Rail", PrimitiveType.Cube, new Vector3(x, yb, 0f), new Vector3(t, t, d - 2f * t), "Aluminium");
+                Child(root, "Rail", PrimitiveType.Cube, new Vector3(x, yb, 0f), new Vector3(t, t, d - 2f * t), "FrameBlack");
             return root;
         }
 
@@ -688,14 +724,19 @@ namespace OCS.VR.EditorTools
         {
             CardVisual visual = card.AddComponent<CardVisual>();
 
-            // The models' LED comes in with a plain imported material. Swap in the shared
-            // one with emission switched on, or the glow has nothing to drive.
-            Transform led = card.transform.Find("LED");
-            if (led != null)
+            // The models' LED parts come in with a plain imported material. Swap in the
+            // shared one with emission switched on, or the glow has nothing to drive.
+            var leds = new List<Renderer>();
+            for (int i = 0; i < card.transform.childCount; i++)
             {
-                Renderer r = led.GetComponent<Renderer>();
-                if (r != null) r.sharedMaterial = Materials["LED"];
+                Transform child = card.transform.GetChild(i);
+                if (!child.name.StartsWith("LED")) continue;
+                Renderer r = child.GetComponent<Renderer>();
+                if (r == null) continue;
+                r.sharedMaterial = Materials["LED"];
+                leds.Add(r);
             }
+            visual.leds = leds.ToArray();
             return visual;
         }
 
@@ -722,6 +763,12 @@ namespace OCS.VR.EditorTools
             Mat("RoomFloor", new Color(0.07f, 0.075f, 0.085f), 0f, 0.45f);
             Mat("RoomWall", new Color(0.10f, 0.105f, 0.12f), 0f, 0.2f);
             Mat("StripLight", new Color(0.8f, 0.9f, 1.0f), 0f, 0.5f, emissive: true, emission: new Color(0.9f, 1.1f, 1.4f));
+            Mat("FrameBlack", new Color(0.03f, 0.03f, 0.035f), 0.8f, 0.65f);
+            Mat("RackBody", new Color(0.05f, 0.055f, 0.06f), 0.5f, 0.4f);
+            Mat("RackLedGreen", new Color(0.1f, 0.4f, 0.2f), 0f, 0.5f, emissive: true, emission: new Color(0.2f, 1.4f, 0.5f));
+            Mat("RackLedBlue", new Color(0.1f, 0.2f, 0.4f), 0f, 0.5f, emissive: true, emission: new Color(0.3f, 0.7f, 1.6f));
+            // Sprites/Default blends by vertex colour, which is how the trail fades out.
+            Mat("Trail", Color.white, 0f, 0f, shader: "Sprites/Default");
         }
 
         /// <summary>
@@ -729,19 +776,20 @@ namespace OCS.VR.EditorTools
         /// GUIDs or undo tweaks someone made in the inspector.
         /// </summary>
         static void Mat(string name, Color color, float metallic, float smoothness,
-                        bool emissive = false, Color? emission = null)
+                        bool emissive = false, Color? emission = null,
+                        string shader = "Universal Render Pipeline/Lit")
         {
             string path = MaterialsDir + "/" + name + ".mat";
             Material mat = AssetDatabase.LoadAssetAtPath<Material>(path);
             if (mat == null)
             {
-                Shader lit = Shader.Find("Universal Render Pipeline/Lit");
-                if (lit == null)
+                Shader found = Shader.Find(shader);
+                if (found == null)
                 {
-                    Debug.LogError("[SceneBuilder] URP Lit shader not found. Is this a URP project?");
+                    Debug.LogError("[SceneBuilder] Shader '" + shader + "' not found. Is this a URP project?");
                     return;
                 }
-                mat = new Material(lit);
+                mat = new Material(found);
                 mat.SetColor("_BaseColor", color);
                 mat.SetFloat("_Metallic", metallic);
                 mat.SetFloat("_Smoothness", smoothness);
