@@ -23,6 +23,10 @@ namespace OCS.VR.Experience
         [Tooltip("Travels along the edge as the request moves. Optional.")]
         public Transform pulse;
 
+        [Tooltip("Added to the pulse's position. A little behind the panels, so it tucks " +
+                 "in behind a node when it arrives instead of covering its name.")]
+        public Vector3 pulseOffset;
+
         [Header("Feel")]
         [Tooltip("Edges per second the pulse travels.")]
         public float travelSpeed = 4f;
@@ -31,6 +35,15 @@ namespace OCS.VR.Experience
 
         [Tooltip("How far a busy node lifts. Stand in for emission until V7.")]
         public float busyLift = 0.05f;
+
+        [Tooltip("Optional. One per node, lit while the request is there. Needs an " +
+                 "emissive material.")]
+        public Renderer[] nodeAccents;
+        [ColorUsage(false, true)] public Color accentIdle = new Color(0.04f, 0.12f, 0.18f);
+        [ColorUsage(false, true)] public Color accentBusy = new Color(0.4f, 1.6f, 2.4f);
+
+        static readonly int EmissionColorId = Shader.PropertyToID("_EmissionColor");
+        MaterialPropertyBlock _block;
 
         SystemRouteState _state;
 
@@ -127,6 +140,18 @@ namespace OCS.VR.Experience
                 }
             }
 
+            if (nodeAccents != null)
+            {
+                if (_block == null) _block = new MaterialPropertyBlock();
+                for (int i = 0; i < nodeAccents.Length && i < graph.NodeCount; i++)
+                {
+                    if (nodeAccents[i] == null) continue;
+                    nodeAccents[i].GetPropertyBlock(_block);
+                    _block.SetColor(EmissionColorId, Color.Lerp(accentIdle, accentBusy, _state.Glow(i)));
+                    nodeAccents[i].SetPropertyBlock(_block);
+                }
+            }
+
             if (pulse != null) UpdatePulse();
         }
 
@@ -145,7 +170,7 @@ namespace OCS.VR.Experience
             int prev = _state.PreviousNode;
             Vector3 from = prev >= 0 && prev < graph.NodeCount ? graph.nodes[prev].position : to;
 
-            pulse.localPosition = Vector3.Lerp(from, to, _state.EdgeProgress01);
+            pulse.localPosition = Vector3.Lerp(from, to, _state.EdgeProgress01) + pulseOffset;
         }
     }
 }

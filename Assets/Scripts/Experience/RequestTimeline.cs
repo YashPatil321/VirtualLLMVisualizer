@@ -55,7 +55,12 @@ namespace OCS.VR.Experience
             player.TraceStarted -= OnTraceStarted;
         }
 
-        void Start() => ResetAll();
+        // The stage director switches this on as the request act begins, so Start can come
+        // after the trace has already started. Don't wipe hops that have begun.
+        void Start()
+        {
+            if (_started == 0) ResetAll();
+        }
 
         void OnTraceStarted(Trace trace) => ResetAll();
 

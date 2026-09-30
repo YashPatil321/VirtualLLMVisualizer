@@ -160,4 +160,43 @@ namespace OCS.VR.Tests
             Assert.AreEqual(0.1f / 3f, w[1]);
         }
     }
+
+    public class StageMotionTests
+    {
+        [Test]
+        public void NothingMovesBeforeItsAct()
+        {
+            Assert.AreEqual(0f, StageMotion.Progress(Act.Assembly, 50f, Act.PowerOn, 0f, 1f));
+            Assert.AreEqual(0f, StageMotion.Progress(Act.None, 0f, Act.PowerOn, 0f, 1f));
+        }
+
+        [Test]
+        public void EverythingHasMovedAfterItsAct()
+        {
+            // Even if its act was skipped or cut short, a later act finds it done.
+            Assert.AreEqual(1f, StageMotion.Progress(Act.Answer, 0f, Act.PowerOn, 5f, 1f));
+        }
+
+        [Test]
+        public void DuringItsActItWaitsForTheDelayThenEasesIn()
+        {
+            Assert.AreEqual(0f, StageMotion.Progress(Act.PowerOn, 0.9f, Act.PowerOn, 1f, 2f));
+            Assert.AreEqual(0.5f, StageMotion.Progress(Act.PowerOn, 2f, Act.PowerOn, 1f, 2f), 1e-5f);
+            Assert.AreEqual(1f, StageMotion.Progress(Act.PowerOn, 3.5f, Act.PowerOn, 1f, 2f));
+        }
+
+        [Test]
+        public void EasingStartsAndEndsGently()
+        {
+            Assert.Less(StageMotion.Ease(0.1f), 0.1f);
+            Assert.Greater(StageMotion.Ease(0.9f), 0.9f);
+        }
+
+        [Test]
+        public void ZeroDurationSnaps()
+        {
+            Assert.AreEqual(0f, StageMotion.Progress(Act.Request, 0.4f, Act.Request, 0.5f, 0f));
+            Assert.AreEqual(1f, StageMotion.Progress(Act.Request, 0.5f, Act.Request, 0.5f, 0f));
+        }
+    }
 }

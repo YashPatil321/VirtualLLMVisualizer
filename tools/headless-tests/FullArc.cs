@@ -117,7 +117,18 @@ public static class FullArc
         var timeline = new RequestTimeline { player = player, segments = segs, segmentLeft = TimelineLayout.Offsets(segW),
                                              segmentWidth = segW, playhead = new Transform() };
         int modelSeg = drawable.FindIndex(h => h.Type == HopType.Model);
-        var extras = new object[] { beams, hopCaptions, readout, timeline };
+        // The stage cues, as the builder sets them.
+        var trayT = new Transform(); var standT = new Transform(); var viewT = new Transform(); var timelineT = new Transform();
+        var stage = new StageDirector { sequencer = seq, cues = new[]
+        {
+            new StageCue { target = trayT, act = Act.PowerOn, move = StageMove.Sink, delay = 0.3f, duration = 2.5f, depth = 1f },
+            new StageCue { target = standT, act = Act.PowerOn, move = StageMove.Sink, delay = 0.6f, duration = 2.5f, depth = 1f },
+            new StageCue { target = viewT, act = Act.PowerOn, move = StageMove.Appear, delay = 1.8f, duration = 1.4f },
+            new StageCue { target = timelineT, act = Act.Request, move = StageMove.Appear, delay = 0f, duration = 0.6f },
+        } };
+        bool viewShownDuringAssembly = false, timelineShownBeforeRequest = false, trayShownAtRequest = false;
+        float viewScaleAtRequest = -1f, timelineScaleLate = 0f;
+        var extras = new object[] { beams, hopCaptions, readout, timeline, stage };
         int emissionId = Shader.PropertyToID("_EmissionColor");
         System.Func<int, float> glowOf = i =>
         {
@@ -168,7 +179,7 @@ public static class FullArc
             Call(player, "Update"); Call(assembly, "Update");
             Call(rigDisplay, "Update"); Call(sysView, "Update"); Call(narrator, "Update");
             foreach (var v in visuals) Call(v, "Update");
-            Call(beams, "Update"); Call(timeline, "Update"); Call(readout, "LateUpdate");
+            Call(beams, "Update"); Call(timeline, "Update"); Call(readout, "LateUpdate"); Call(stage, "Update");
             MonoBehaviour.PumpCoroutines();
 
             for (int b = 0; b < beamLines.Length; b++) if (beamLines[b].widthMultiplier > beamPeak[b]) beamPeak[b] = beamLines[b].widthMultiplier;
@@ -182,6 +193,14 @@ public static class FullArc
             if (midReadout == null && rt.Contains("Generating") && !rt.Contains(" 0 tokens") && !rt.Contains("186 tokens")) midReadout = rt;
 
             Act now = seq.CurrentAct;
+            if ((now == Act.EmptyBench || now == Act.Assembly) && viewT.gameObject.activeSelf) viewShownDuringAssembly = true;
+            if (now < Act.Request && timelineT.gameObject.activeSelf) timelineShownBeforeRequest = true;
+            if (now == Act.Request && viewScaleAtRequest < 0f)
+            {
+                viewScaleAtRequest = viewT.gameObject.activeSelf ? viewT.localScale.x : 0f;
+                trayShownAtRequest = trayT.gameObject.activeSelf || standT.gameObject.activeSelf;
+            }
+            if (now == Act.Answer && timelineT.gameObject.activeSelf) timelineScaleLate = timelineT.localScale.x;
             if (now == Act.EmptyBench || now == Act.Assembly)
             {
                 for (int i = 0; i < 8; i++)
@@ -229,7 +248,12 @@ public static class FullArc
         Console.WriteLine($"  scheduler caption     : \"{captions[graph.IndexOf(graph.Find("gpu-scheduler"))].text.Replace("\n", " / ")}\"");
         Console.WriteLine($"  card readout mid-run  : \"{(midReadout ?? "(none)").Replace("\n", " / ")}\"");
         if (lit != beamLines.Length || beamLines.Length != 4) { Console.WriteLine("  >>> BUG: not every beam on the route lit, or the route isn't 4 beams."); problems++; }
-        if (cardBeamPeak < 0.03f) { Console.WriteLine("  >>> BUG: the beam down to the working card never showed."); problems++; }
+        Console.WriteLine($"  stage                 : system view at scale {viewScaleAtRequest:F2} when the request starts, " +
+                          $"timeline at {timelineScaleLate:F2} by the answer, tray and stand {(trayShownAtRequest ? "still there" : "gone")}");
+        if (viewShownDuringAssembly || timelineShownBeforeRequest) { Console.WriteLine("  >>> BUG: the system view or timeline showed before its act."); problems++; }
+        if (viewScaleAtRequest < 0.99f || timelineScaleLate < 0.99f) { Console.WriteLine("  >>> BUG: the system view or timeline wasn't fully in when needed."); problems++; }
+        if (trayShownAtRequest) { Console.WriteLine("  >>> BUG: the empty tray or frame stand was still up at the request."); problems++; }
+        if (cardBeamPeak < beams.cardBeamWidth * 0.5f) { Console.WriteLine("  >>> BUG: the beam down to the working card never showed."); problems++; }
         if (modelSegPeakRed < 2f) { Console.WriteLine("  >>> BUG: the generation segment never lit in the GPU colour."); problems++; }
         if (playheadMax < 2.3f) { Console.WriteLine("  >>> BUG: the timeline playhead didn't reach the end."); problems++; }
         if (!sawStats || !sawTokensDone || midReadout == null) { Console.WriteLine("  >>> BUG: the card readout missed its stats or its token count."); problems++; }

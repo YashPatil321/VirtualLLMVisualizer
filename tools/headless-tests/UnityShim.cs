@@ -15,6 +15,7 @@ namespace UnityEngine
         public Vector3(float x, float y, float z) { this.x = x; this.y = y; this.z = z; }
         public static Vector3 right => new Vector3(1, 0, 0);
         public static Vector3 up => new Vector3(0, 1, 0);
+        public static Vector3 down => new Vector3(0, -1, 0);
         public float sqrMagnitude => x * x + y * y + z * z;
         public static bool operator ==(Vector3 a, Vector3 b) => a.x == b.x && a.y == b.y && a.z == b.z;
         public static bool operator !=(Vector3 a, Vector3 b) => !(a == b);
@@ -41,6 +42,9 @@ namespace UnityEngine
 
     public static class Mathf
     {
+        public const float PI = (float)System.Math.PI;
+        public static float Sin(float a) => (float)System.Math.Sin(a);
+        public static float Cos(float a) => (float)System.Math.Cos(a);
         public static float Clamp01(float v) => v < 0f ? 0f : (v > 1f ? 1f : v);
         public static int Clamp(int v, int lo, int hi) => v < lo ? lo : (v > hi ? hi : v);
         public static float Clamp(float v, float lo, float hi) => v < lo ? lo : (v > hi ? hi : v);
@@ -99,7 +103,8 @@ namespace UnityEngine
     public class Material : Object
     {
         public MaterialGlobalIlluminationFlags globalIlluminationFlags;
-        public Material(Shader s) { }
+        public Shader shader;
+        public Material(Shader s) { shader = s; }
         public void SetColor(string n, Color c) { }
         public void SetFloat(string n, float f) { }
         public void EnableKeyword(string k) { }
@@ -134,7 +139,12 @@ namespace UnityEngine
     public class LineRenderer : Renderer
     {
         public bool useWorldSpace;
-        public int positionCount = 2, numCapVertices;
+        public int numCapVertices;
+        int _count = 2;
+        public int positionCount { get => _count; set { _count = value; Positions = new Vector3[value]; } }
+        public bool loop;
+        public LineAlignment alignment;
+        public AnimationCurve widthCurve;
         public float widthMultiplier;
         public Color startColor, endColor;
         public UnityEngine.Rendering.ShadowCastingMode shadowCastingMode;
@@ -211,11 +221,17 @@ namespace UnityEngine
     public enum PrimitiveType { Cube, Sphere, Plane, Capsule, Cylinder, Quad }
     public enum TextAnchor { UpperLeft, UpperCenter, UpperRight, MiddleLeft, MiddleCenter, MiddleRight, LowerLeft, LowerCenter, LowerRight }
 
+    public enum TextAlignment { Left, Center, Right }
+    public enum LineAlignment { View, TransformZ }
+    public struct Keyframe { public float time, value; public Keyframe(float t, float v) { time = t; value = v; } }
+    public class AnimationCurve { public Keyframe[] keys; public AnimationCurve(params Keyframe[] k) { keys = k; } }
+
     public struct Quaternion
     {
         public static Quaternion Euler(float x, float y, float z) => new Quaternion();
         public static Quaternion identity => new Quaternion();
         public static Quaternion LookRotation(Vector3 forward) => new Quaternion();
+        public static Quaternion LookRotation(Vector3 forward, Vector3 up) => new Quaternion();
     }
 
     public class TextMesh : Component
@@ -223,6 +239,7 @@ namespace UnityEngine
         public Color color;
         public string text;
         public TextAnchor anchor;
+        public TextAlignment alignment;
         public int fontSize;
         public float characterSize;
     }
@@ -434,6 +451,12 @@ namespace NUnit.Framework
             else ok = Equals(a, b);
             if (!ok) throw new AssertionException($"expected <{a}> but was <{b}>. {m}");
         }
+        public static void AreEqual(double a, double b, double delta, string m = null)
+        {
+            if (Math.Abs(a - b) > delta) throw new AssertionException($"expected <{a}> +/- {delta} but was <{b}>. {m}");
+        }
+        public static void Less(float a, float b, string m = null) { if (!(a < b)) throw new AssertionException($"expected {a} < {b}. {m}"); }
+        public static void Greater(float a, float b, string m = null) { if (!(a > b)) throw new AssertionException($"expected {a} > {b}. {m}"); }
     }
 }
 

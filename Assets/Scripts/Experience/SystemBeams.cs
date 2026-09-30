@@ -38,6 +38,14 @@ namespace OCS.VR.Experience
         public float litWidth = 0.03f;
         public float fadePerSecond = 1.2f;
 
+        [Tooltip("Card beam width at full load, metres. Its shape along the length " +
+                 "comes from the line's width curve.")]
+        public float cardBeamWidth = 0.03f;
+
+        [Tooltip("How far below the rig's node the card beam starts, so it leaves the " +
+                 "bottom of the panel rather than its middle.")]
+        public float cardBeamDrop = 0.05f;
+
         BeamGlowState _state;
         int _cardIndex = -1;
         int _cardNode = -1;
@@ -123,9 +131,9 @@ namespace OCS.VR.Experience
             if (cardBeam.enabled != on) cardBeam.enabled = on;
             if (!on) return;
 
-            cardBeam.SetPosition(0, from.position);
+            cardBeam.SetPosition(0, from.position + Vector3.down * cardBeamDrop);
             cardBeam.SetPosition(1, to.position + Vector3.up * 0.07f);
-            cardBeam.widthMultiplier = Mathf.Lerp(0f, litWidth * 1.4f, load);
+            cardBeam.widthMultiplier = Mathf.Lerp(0f, cardBeamWidth, load);
             Color c = cardBeamColor;
             c.a *= load;
             cardBeam.startColor = c;

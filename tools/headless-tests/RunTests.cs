@@ -12,7 +12,7 @@ public static class RunTests
                                 typeof(OCS.VR.Tests.SystemGraphTests), typeof(OCS.VR.Tests.NarrationTrackTests),
                                 typeof(OCS.VR.Tests.CardVisualMathTests),
                                 typeof(OCS.VR.Tests.BeamGlowStateTests), typeof(OCS.VR.Tests.TelemetryTextTests),
-                                typeof(OCS.VR.Tests.TimelineLayoutTests) })
+                                typeof(OCS.VR.Tests.TimelineLayoutTests), typeof(OCS.VR.Tests.StageMotionTests) })
         {
         Console.WriteLine("-- " + t.Name);
         var inst = Activator.CreateInstance(t);

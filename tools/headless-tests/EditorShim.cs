@@ -17,6 +17,11 @@ namespace UnityEditor
         public static string CreateFolder(string parent, string name) => "";
     }
 
+    public static class EditorUtility
+    {
+        public static void SetDirty(UnityEngine.Object o) { }
+    }
+
     public enum InteractionMode { AutomatedAction, UserAction }
 
     public static class PrefabUtility

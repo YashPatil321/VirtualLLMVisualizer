@@ -112,6 +112,9 @@ Experience
 - `Experience/PartLabel.cs` — names a part with a leader line as it seats. Text, offset
   and how long it stays come from the step's `label`, `labelOffset` and `labelSeconds`
 - `Experience/FaceCamera.cs` — turns labels to face the viewer
+- `Experience/StageMotion.cs` — how far a stage change is along, from the act, plain C#
+- `Experience/StageDirector.cs` — sinks the empty tray and stand after assembly, grows
+  the system view in at power on, brings the timeline in with the request
 
 Editor
 - `Editor/ExperienceSceneBuilder.cs` — OCS > Build Experience Scene. Uses models from
@@ -130,7 +133,8 @@ Data, in `Assets/Data/`
   (5 nodes), `NarrationTrack.asset` (11 lines), `sample-trace.json`
 
 Tests in `Assets/Tests/EditMode/` cover the loader, card lighting, the assembly
-timeline, hop routing, narration cues, beam glow, readout text and timeline layout.
+timeline, hop routing, narration cues, beam glow, readout text, timeline layout and
+stage timing.
 
 Visuals subscribe to player events. Playback and state logic never touch Transforms
 directly, which is why every one of those rules is covered by an edit mode test with no

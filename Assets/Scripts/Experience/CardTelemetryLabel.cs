@@ -18,8 +18,8 @@ namespace OCS.VR.Experience
         public RigCardDisplay rig;
         public TextMesh text;
 
-        [Tooltip("Metres above the card's origin.")]
-        public float height = 0.2f;
+        [Tooltip("Where the readout sits, metres from the card's origin in world axes.")]
+        public Vector3 offset = new Vector3(0f, 0.2f, 0f);
 
         int _card = -1;
         string _header = string.Empty;
@@ -88,7 +88,7 @@ namespace OCS.VR.Experience
         {
             if (_card < 0 || rig == null || rig.cards == null || _card >= rig.cards.Length || rig.cards[_card] == null) return;
 
-            transform.position = rig.cards[_card].position + Vector3.up * height;
+            transform.position = rig.cards[_card].position + offset;
 
             if (_generating == null || _frames == null || text == null) return;
             int n = TelemetryText.TokensAt(player.ElapsedMs, _generating.t_start_ms, _generating.t_end_ms, _generating.tokens_out);

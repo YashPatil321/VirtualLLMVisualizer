@@ -40,26 +40,47 @@ namespace OCS.VR.EditorTools
         // RigLayout's card positions are relative to RigRoot too.
         const float BenchTop = BenchTopWorld - 0.9f;
 
+        // Where the viewer's eyes start. Panels and the dashboard are turned to face it.
+        static readonly Vector3 ViewerEye = new Vector3(0f, 1.6f, -0.35f);
+
         // SystemViewDisplay rewrites node positions from SystemGraph.asset every frame, so
-        // moving nodes in the asset or the scene doesn't stick. The root transform is the
-        // lever: scale the graph down and drop it so it sits just behind and above the cards.
-        // Full size and raised: the system view spans the space behind and above the rig,
-        // with its nodes between 1.55 and 2.35 m up, clear of the rig's top at 1.18 m.
-        static readonly Vector3 SystemViewPosition = new Vector3(0f, 0.15f, 1.9f);
-        const float SystemViewScale = 1.0f;
+        // the root transform is the lever. It sits at the middle of the arch the nodes
+        // make over the rig, which is also the point the view grows out of at power on.
+        // SystemGraph.asset positions are relative to it; Rig 2's node is straight above
+        // the real rig, so the beam from it drops onto the working card.
+        static readonly Vector3 SystemViewPosition = new Vector3(0f, 1.8f, 1.35f);
 
-        // The "where the time goes" bar, under the system view and above the rig's top as
-        // seen from the viewer's eye line. Left of centre, because the beam from Rig 2 down
-        // to the working card crosses the right half of that band.
-        static readonly Vector3 TimelineCentre = new Vector3(-0.55f, 1.3f, 1.9f);
-        const float TimelineWidth = 2.3f;
+        // Node panels, metres.
+        // Name on top, caption under it, both inside the panel, so nothing hangs below it
+        // for Rig 2's beam to cut through.
+        static readonly Vector3 PanelSize = new Vector3(0.40f, 0.13f, 0.008f);
 
-        // Subtitle line just above the front edge of the bench, below the cards, so it never
-        // covers the rig or the system view. Light, because the room is dark.
-        static readonly Vector3 NarrationPosition = new Vector3(0f, 0.98f, 0.45f);
-        static readonly Color TextColour = new Color(0.86f, 0.9f, 0.96f);
-        static readonly Color CaptionColour = new Color(0.62f, 0.72f, 0.84f);
-        static readonly Color ReadoutColour = new Color(1f, 0.88f, 0.72f);
+        // A strip floating over the front edge of the bench, tilted to face the viewer:
+        // the narration line on top, the "where the time goes" bar under it. Everything
+        // the viewer reads sits in one place, below the rig, and never covers it.
+        static readonly Vector3 DashboardPosition = new Vector3(0f, 0.95f, 0.40f);
+        const float TimelineWidth = 0.9f;
+
+        // The readout sits just right of the beam, halfway between the card and Rig 2's
+        // panel, so the beam itself connects the numbers to the card they describe.
+        static readonly Vector3 ReadoutOffset = new Vector3(0.07f, 0.3f, 0f);
+
+        // One palette. Cyan is the software and the network; amber is the GPU working.
+        // Everything else is near black or grey, so the two colours carry the story.
+        static readonly Color TextColour = new Color(0.92f, 0.94f, 0.97f);
+        static readonly Color CaptionColour = new Color(0.55f, 0.62f, 0.70f);
+        static readonly Color ReadoutColour = new Color(1f, 0.86f, 0.68f);
+        static readonly Color Cyan = new Color(0.35f, 0.82f, 1f);
+        static readonly Color Amber = new Color(1f, 0.62f, 0.22f);
+
+        // Line heights for text, metres. Sized for the distance each is read from, so all
+        // of it is roughly the same size to the eye.
+        const float NodeNameHeight = 0.045f;
+        const float NodeCaptionHeight = 0.022f;
+        const float PartLabelHeight = 0.024f;
+        const float ReadoutHeight = 0.024f;
+        const float NarrationHeight = 0.028f;
+        const float DashboardCaptionHeight = 0.018f;
 
         // Real sizes, metres, in Unity axes: x across, y up, z along. These match the
         // Blender models exactly, so placeholders and models are interchangeable.
@@ -122,7 +143,7 @@ namespace OCS.VR.EditorTools
                 sun.shadows = LightShadows.None;
                 if (!customRoom)
                 {
-                    sun.intensity = 0.7f;
+                    sun.intensity = 1.0f;
                     sun.color = new Color(0.85f, 0.9f, 1f);
                     sun.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
                 }
@@ -137,13 +158,13 @@ namespace OCS.VR.EditorTools
             bench.transform.SetParent(rigRoot.transform, false);
             bench.transform.localScale = new Vector3(1.2f, 0.06f, 0.6f);
             bench.transform.localPosition = new Vector3(0f, BenchTop - 0.03f, 0f);
-            Paint(bench, "Bench");
+            Paint(bench, "Plinth");
 
             GameObject benchBase = GameObject.CreatePrimitive(PrimitiveType.Cube);
             benchBase.name = "Bench Base";
             benchBase.transform.position = new Vector3(RigPosition.x, (BenchTopWorld - 0.06f) / 2f, RigPosition.z);
             benchBase.transform.localScale = new Vector3(1.1f, BenchTopWorld - 0.06f, 0.5f);
-            Paint(benchBase, "BenchDark");
+            Paint(benchBase, "PlinthBase");
 
             // ---------- parts, laid out on a tray table ----------
             var partObjects = new Dictionary<string, GameObject>();
@@ -166,7 +187,9 @@ namespace OCS.VR.EditorTools
             }
 
             GameObject parts = new GameObject("Parts");
-            Transform trayOrigin = LayOutTray(sequence, partObjects, parts.transform);
+            Transform frameStand;
+            Transform trayOrigin = LayOutTray(sequence, partObjects, parts.transform, out frameStand);
+            Transform trayStand = trayOrigin;
 
             // ---------- sockets ----------
             var bindings = new List<AssemblyPartBinding>(sequence.StepCount);
@@ -226,55 +249,52 @@ namespace OCS.VR.EditorTools
             // ---------- system view ----------
             GameObject systemView = new GameObject("SystemView");
             systemView.transform.position = SystemViewPosition;
-            systemView.transform.localScale = Vector3.one * SystemViewScale;
 
-            // Child sizes are divided by the root scale so markers, labels and the pulse stay
-            // their real size; only the spacing between nodes shrinks.
-            Vector3 markerScale = new Vector3(0.28f, 0.16f, 0.06f) / SystemViewScale;
-
+            // Each node is a dark panel turned to face the viewer: its name, a caption under
+            // it saying what happened there, and a light along its bottom edge that comes
+            // up while the request is there. The empty parent is what SystemViewDisplay
+            // moves.
             var markers = new Transform[graph.NodeCount];
+            var accents = new Renderer[graph.NodeCount];
+            var captions = new TextMesh[graph.NodeCount];
             for (int i = 0; i < graph.NodeCount; i++)
             {
                 SystemNode node = graph.nodes[i];
 
-                GameObject marker = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                marker.name = "Node " + node.nodeId;
+                GameObject marker = new GameObject("Node " + node.nodeId);
                 marker.transform.SetParent(systemView.transform, false);
                 marker.transform.localPosition = node.position;
-                marker.transform.localScale = markerScale;
-                RemoveCollider(marker);
-                Paint(marker, "Node");
+                marker.transform.rotation = FacingViewer(marker.transform.position);
                 markers[i] = marker.transform;
 
-                GameObject label = new GameObject("Label " + node.nodeId);
-                label.transform.SetParent(marker.transform, false);
-                label.transform.localPosition = new Vector3(0f, 1.4f, -0.6f);
-                // Undo the marker's non-uniform scale so the text isn't squashed.
-                label.transform.localScale = new Vector3(1f / markerScale.x, 1f / markerScale.y, 1f / markerScale.z)
-                                             * (0.02f / SystemViewScale);
-                TextMesh text = label.AddComponent<TextMesh>();
-                text.text = node.DisplayLabel;
-                text.anchor = TextAnchor.MiddleCenter;
-                text.fontSize = 90;
-                text.characterSize = 0.5f;
-                text.color = TextColour;
+                Child(marker, "Panel", PrimitiveType.Cube, Vector3.zero, PanelSize, "NodePanel");
+                GameObject accent = Child(marker, "Accent", PrimitiveType.Cube,
+                                          new Vector3(0f, -PanelSize.y / 2f + 0.003f, -PanelSize.z / 2f - 0.001f),
+                                          new Vector3(PanelSize.x - 0.02f, 0.004f, 0.002f), "NodeAccent");
+                accents[i] = accent.GetComponent<Renderer>();
+
+                float front = -PanelSize.z / 2f - 0.002f;
+                Text("Name", marker.transform, new Vector3(0f, 0.03f, front), NodeNameHeight,
+                     TextAnchor.MiddleCenter, TextColour, node.DisplayLabel);
+                captions[i] = Text("Caption", marker.transform, new Vector3(0f, -0.004f, front),
+                                   NodeCaptionHeight, TextAnchor.UpperCenter, CaptionColour);
             }
 
             GameObject pulse = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             pulse.name = "Pulse";
             pulse.transform.SetParent(systemView.transform, false);
-            pulse.transform.localScale = Vector3.one * (0.09f / SystemViewScale);
+            pulse.transform.localScale = Vector3.one * 0.04f;
             RemoveCollider(pulse);
             Paint(pulse, "Pulse");
 
             // A short fading trail, so the request reads as something travelling rather than
-            // a dot teleporting between boxes. Width is in world metres.
+            // a dot teleporting between panels. Width is in world metres.
             TrailRenderer trail = pulse.AddComponent<TrailRenderer>();
-            trail.time = 0.45f;
-            trail.widthMultiplier = 0.03f;
+            trail.time = 0.4f;
+            trail.widthMultiplier = 0.018f;
             trail.minVertexDistance = 0.01f;
-            trail.startColor = new Color(0.55f, 0.8f, 1f, 1f);
-            trail.endColor = new Color(0.55f, 0.8f, 1f, 0f);
+            trail.startColor = new Color(Cyan.r, Cyan.g, Cyan.b, 0.9f);
+            trail.endColor = new Color(Cyan.r, Cyan.g, Cyan.b, 0f);
             trail.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             trail.receiveShadows = false;
             if (Materials.ContainsKey("Trail")) trail.sharedMaterial = Materials["Trail"];
@@ -284,25 +304,24 @@ namespace OCS.VR.EditorTools
             sysView.graph = graph;
             sysView.nodeMarkers = markers;
             sysView.pulse = pulse.transform;
+            sysView.busyLift = 0f;              // the accent light says busy; nothing moves
+            sysView.nodeAccents = accents;
+            sysView.pulseOffset = new Vector3(0f, 0f, 0.03f);
+
+            HopCaptions hopCaptions = systemView.AddComponent<HopCaptions>();
+            hopCaptions.player = player;
+            hopCaptions.graph = graph;
+            hopCaptions.captions = captions;
 
             // ---------- how the software works ----------
-            BuildHopCaptions(graph, systemView.transform, player);
             BuildBeams(trace, graph, systemView, sysView, cardDisplay, player);
             BuildCardReadout(cardDisplay, player);
-            BuildTimeline(trace, player);
+            GameObject dashboard = BuildDashboard(trace, player, out GameObject timeline);
             BuildPartLabels(sequence, partObjects, assembly);
 
             // ---------- narration ----------
-            GameObject narrationGo = new GameObject("Narration");
-            narrationGo.transform.position = NarrationPosition;
-            narrationGo.transform.localScale = Vector3.one * 0.02f;
-
-            TextMesh narrationText = narrationGo.AddComponent<TextMesh>();
-            narrationText.text = string.Empty;
-            narrationText.anchor = TextAnchor.MiddleCenter;
-            narrationText.fontSize = 90;
-            narrationText.characterSize = 0.5f;
-            narrationText.color = TextColour;
+            TextMesh narrationText = Text("Narration", dashboard.transform, new Vector3(0f, 0.035f, 0f), NarrationHeight,
+                                          TextAnchor.MiddleCenter, TextColour);
 
             NarrationDirector director = experience.AddComponent<NarrationDirector>();
             director.track = track;
@@ -310,7 +329,7 @@ namespace OCS.VR.EditorTools
             director.assemblyPlayer = assembly;
             director.narrateHops = true;
 
-            NarrationLabel narrationLabel = narrationGo.AddComponent<NarrationLabel>();
+            NarrationLabel narrationLabel = narrationText.gameObject.AddComponent<NarrationLabel>();
             narrationLabel.director = director;
             narrationLabel.target = narrationText;
 
@@ -330,6 +349,19 @@ namespace OCS.VR.EditorTools
             RigPower power = experience.AddComponent<RigPower>();
             power.sequencer = sequencer;
             power.cards = cardVisuals;
+
+            // Only what matters now is on stage. Once the rig is built the empty tray and
+            // frame stand sink into the floor; as it powers on the system view grows out
+            // of the space above it; the timeline arrives with the request.
+            StageDirector stage = experience.AddComponent<StageDirector>();
+            stage.sequencer = sequencer;
+            stage.cues = new[]
+            {
+                new StageCue { target = trayStand, act = Act.PowerOn, move = StageMove.Sink, delay = 0.3f, duration = 2.5f, depth = 1f },
+                new StageCue { target = frameStand, act = Act.PowerOn, move = StageMove.Sink, delay = 0.6f, duration = 2.5f, depth = 1f },
+                new StageCue { target = systemView.transform, act = Act.PowerOn, move = StageMove.Appear, delay = 1.8f, duration = 1.4f },
+                new StageCue { target = timeline.transform, act = Act.Request, move = StageMove.Appear, delay = 0f, duration = 0.6f },
+            };
 
             // ---------- save ----------
             EnsureFolder("Assets/Scenes");
@@ -354,21 +386,38 @@ namespace OCS.VR.EditorTools
 
         // ------------------------------------------------------ software visuals
 
-        /// <summary>A world space text label. TextMesh brings its own MeshRenderer.</summary>
-        static TextMesh Text(string name, Transform parent, Vector3 position, float scale, int fontSize,
+        const int FontSize = 100;
+
+        /// <summary>
+        /// A world space text label, sized by line height in metres. TextMesh brings its own
+        /// MeshRenderer. A large font size keeps the glyphs sharp; the scale brings it down.
+        /// </summary>
+        static TextMesh Text(string name, Transform parent, Vector3 position, float lineHeight,
                              TextAnchor anchor, Color colour, string content = "")
         {
             GameObject go = new GameObject(name);
             go.transform.SetParent(parent, false);
             go.transform.localPosition = position;
-            go.transform.localScale = Vector3.one * scale;
+            // A line is fontSize x characterSize / 10 units tall at scale 1.
+            go.transform.localScale = Vector3.one * (lineHeight / (FontSize * 0.5f * 0.1f));
             TextMesh t = go.AddComponent<TextMesh>();
             t.text = content;
             t.anchor = anchor;
-            t.fontSize = fontSize;
+            t.alignment = anchor == TextAnchor.UpperLeft || anchor == TextAnchor.MiddleLeft || anchor == TextAnchor.LowerLeft
+                ? TextAlignment.Left
+                : anchor == TextAnchor.UpperRight || anchor == TextAnchor.MiddleRight || anchor == TextAnchor.LowerRight
+                    ? TextAlignment.Right
+                    : TextAlignment.Center;
+            t.fontSize = FontSize;
             t.characterSize = 0.5f;
             t.color = colour;
             return t;
+        }
+
+        /// <summary>A rotation whose forward points away from the viewer, so text on it reads.</summary>
+        static Quaternion FacingViewer(Vector3 position)
+        {
+            return Quaternion.LookRotation(position - ViewerEye, Vector3.up);
         }
 
         /// <summary>A two point line. Lines need their own GameObject: one renderer each.</summary>
@@ -389,25 +438,10 @@ namespace OCS.VR.EditorTools
             return line;
         }
 
-        /// <summary>Under each node: what happened there and how long it took.</summary>
-        static void BuildHopCaptions(SystemGraph graph, Transform systemView, TracePlayer player)
-        {
-            var captions = new TextMesh[graph.NodeCount];
-            for (int i = 0; i < graph.NodeCount; i++)
-            {
-                captions[i] = Text("Caption " + graph.nodes[i].nodeId, systemView,
-                                   graph.nodes[i].position + new Vector3(0f, -0.1f, -0.03f),
-                                   0.008f / SystemViewScale, 60, TextAnchor.UpperCenter, CaptionColour);
-            }
-            HopCaptions hc = systemView.gameObject.AddComponent<HopCaptions>();
-            hc.player = player;
-            hc.graph = graph;
-            hc.captions = captions;
-        }
-
         /// <summary>
         /// A beam for every pair of nodes the request travels between, worked out from the
-        /// trace now, plus the beam from the rig's node down to the working card.
+        /// trace now, plus the beam from the rig's node down to the working card. The
+        /// beams live under the system view so they grow in with it.
         /// </summary>
         static void BuildBeams(TextAsset trace, SystemGraph graph, GameObject systemView, SystemViewDisplay view,
                                RigCardDisplay rig, TracePlayer player)
@@ -427,13 +461,32 @@ namespace OCS.VR.EditorTools
                 BeamGlowState.EdgesFromRoute(route, from, to);
             }
 
-            GameObject root = new GameObject("Beams");
+            // The rigs the scheduler could have picked and didn't get a faint link too, so
+            // "least busy rig selected" has something to have been chosen over. Nothing
+            // ever travels it, so it never lights.
+            int scheduler = -1;
+            for (int i = 0; i < graph.NodeCount; i++)
+                if (graph.nodes[i].hopType == HopType.Scheduler) scheduler = i;
+            if (scheduler >= 0)
+            {
+                for (int i = 0; i < graph.NodeCount; i++)
+                {
+                    if (graph.nodes[i].hopType != HopType.Unknown || !graph.nodes[i].nodeId.StartsWith("rig")) continue;
+                    from.Add(scheduler);
+                    to.Add(i);
+                }
+            }
+
+            var idle = new Color(Cyan.r, Cyan.g, Cyan.b, 0.12f);
             var lines = new LineRenderer[from.Count];
             for (int e = 0; e < from.Count; e++)
                 lines[e] = Line("Beam " + graph.nodes[from[e]].nodeId + " - " + graph.nodes[to[e]].nodeId,
-                                root.transform, 0.006f, new Color(0.35f, 0.55f, 0.9f, 0.25f));
+                                systemView.transform, 0.003f, idle);
 
-            LineRenderer cardBeam = Line("Card Beam", root.transform, 0f, new Color(1f, 0.6f, 0.2f, 0f));
+            // Narrow where it leaves the panel, full width where it lands on the card, so it
+            // reads as light falling onto the card rather than a bar joining two things.
+            LineRenderer cardBeam = Line("Card Beam", systemView.transform, 0f, new Color(Amber.r, Amber.g, Amber.b, 0f));
+            cardBeam.widthCurve = new AnimationCurve(new Keyframe(0f, 0.15f), new Keyframe(1f, 1f));
             cardBeam.enabled = false;
 
             SystemBeams beams = systemView.AddComponent<SystemBeams>();
@@ -445,29 +498,46 @@ namespace OCS.VR.EditorTools
             beams.edgeTo = to.ToArray();
             beams.lines = lines;
             beams.cardBeam = cardBeam;
+            beams.idleColor = idle;
+            beams.litColor = new Color(Cyan.r, Cyan.g, Cyan.b, 0.95f);
+            beams.idleWidth = 0.003f;
+            beams.litWidth = 0.012f;
+            beams.cardBeamColor = new Color(Amber.r, Amber.g, Amber.b, 0.85f);
+            beams.cardBeamWidth = 0.04f;
+            beams.cardBeamDrop = PanelSize.y / 2f;
         }
 
-        /// <summary>The readout that floats over whichever card is working.</summary>
+        /// <summary>The readout beside whichever card is working.</summary>
         static void BuildCardReadout(RigCardDisplay rig, TracePlayer player)
         {
-            TextMesh text = Text("Card Readout", null, Vector3.zero, 0.009f, 70, TextAnchor.LowerCenter, ReadoutColour);
+            TextMesh text = Text("Card Readout", null, Vector3.zero, ReadoutHeight, TextAnchor.LowerLeft, ReadoutColour);
             text.gameObject.AddComponent<FaceCamera>();
             CardTelemetryLabel label = text.gameObject.AddComponent<CardTelemetryLabel>();
             label.player = player;
             label.rig = rig;
             label.text = text;
-            label.height = 0.24f;
+            label.offset = ReadoutOffset;
         }
 
         /// <summary>
-        /// The "where the time goes" bar, one segment per hop, sized from the trace now so
-        /// the proportions are the real ones.
+        /// The strip over the front of the bench: the narration line goes on top (added by
+        /// the caller), the "where the time goes" bar under it. The bar is one segment per
+        /// hop, sized from the trace now so the proportions are the real ones: a sliver of
+        /// cyan for everything the software does, and a long amber run for the GPU.
         /// </summary>
-        static void BuildTimeline(TextAsset trace, TracePlayer player)
+        static GameObject BuildDashboard(TextAsset trace, TracePlayer player, out GameObject timelineRoot)
         {
+            GameObject dashboard = new GameObject("Dashboard");
+            dashboard.transform.position = DashboardPosition;
+            dashboard.transform.rotation = FacingViewer(DashboardPosition);
+
+            timelineRoot = new GameObject("Request Timeline");
+            timelineRoot.transform.SetParent(dashboard.transform, false);
+            timelineRoot.transform.localPosition = new Vector3(0f, -0.012f, 0f);
+
             Trace parsed;
             string error;
-            if (!TraceLoader.TryParse(trace.text, out parsed, out error)) return;
+            if (!TraceLoader.TryParse(trace.text, out parsed, out error)) return dashboard;
             List<Hop> hops = TraceLoader.DrawableHops(parsed);
 
             var durations = new float[hops.Count];
@@ -479,51 +549,49 @@ namespace OCS.VR.EditorTools
                 if (hops[i].Type == HopType.Model) generating += durations[i];
             }
 
-            float[] widths = TimelineLayout.Widths(durations, TimelineWidth, 0.05f);
+            float[] widths = TimelineLayout.Widths(durations, TimelineWidth, 0.012f);
             float[] lefts = TimelineLayout.Offsets(widths);
-
-            GameObject root = new GameObject("Request Timeline");
-            root.transform.position = TimelineCentre - new Vector3(TimelineWidth / 2f, 0f, 0f);
+            float x0 = -TimelineWidth / 2f;
 
             var segments = new Renderer[hops.Count];
-            float gap = 0.004f;
+            const float gap = 0.002f;
             for (int i = 0; i < hops.Count; i++)
             {
-                GameObject seg = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                seg.name = "Segment " + i + " " + hops[i].hop;
-                seg.transform.SetParent(root.transform, false);
-                seg.transform.localPosition = new Vector3(lefts[i] + widths[i] / 2f, 0f, 0f);
-                seg.transform.localScale = new Vector3(Mathf.Max(0.002f, widths[i] - gap), 0.035f, 0.02f);
-                RemoveCollider(seg);
-                Paint(seg, "TimelineSegment");
+                GameObject seg = Child(timelineRoot, "Segment " + i + " " + hops[i].hop, PrimitiveType.Cube,
+                                       new Vector3(x0 + lefts[i] + widths[i] / 2f, 0f, 0f),
+                                       new Vector3(Mathf.Max(0.002f, widths[i] - gap), 0.008f, 0.004f), "TimelineSegment");
                 segments[i] = seg.GetComponent<Renderer>();
+                lefts[i] += x0;
             }
 
-            GameObject head = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            head.name = "Playhead";
-            head.transform.SetParent(root.transform, false);
-            head.transform.localScale = new Vector3(0.006f, 0.075f, 0.03f);
-            RemoveCollider(head);
-            Paint(head, "Pulse");
+            GameObject head = Child(timelineRoot, "Playhead", PrimitiveType.Cube, Vector3.zero,
+                                    new Vector3(0.003f, 0.024f, 0.006f), "Pulse");
 
-            Text("Title", root.transform, new Vector3(0f, 0.045f, 0f), 0.009f, 60, TextAnchor.LowerLeft,
-                 TextColour, "Where the time goes  ·  " + TelemetryText.Duration(total));
-            Text("Generating", root.transform, new Vector3(TimelineWidth, -0.035f, 0f), 0.008f, 60, TextAnchor.UpperRight,
-                 CaptionColour, "GPU generating  ·  " + TelemetryText.Duration(generating));
-            Text("Everything Else", root.transform, new Vector3(0f, -0.035f, 0f), 0.008f, 60, TextAnchor.UpperLeft,
-                 CaptionColour, "Routing, scheduling, network  ·  " + TelemetryText.Duration(total - generating));
+            Text("Everything Else", timelineRoot.transform, new Vector3(x0, -0.012f, 0f), DashboardCaptionHeight,
+                 TextAnchor.UpperLeft, new Color(Cyan.r, Cyan.g, Cyan.b) * 0.85f,
+                 "Routing, scheduling, network  " + TelemetryText.Duration(total - generating));
+            Text("Generating", timelineRoot.transform, new Vector3(-x0, -0.012f, 0f), DashboardCaptionHeight,
+                 TextAnchor.UpperRight, Amber, "GPU generating  " + TelemetryText.Duration(generating));
 
-            RequestTimeline timeline = root.AddComponent<RequestTimeline>();
+            RequestTimeline timeline = timelineRoot.AddComponent<RequestTimeline>();
             timeline.player = player;
             timeline.segments = segments;
             timeline.segmentLeft = lefts;
             timeline.segmentWidth = widths;
             timeline.playhead = head.transform;
+            timeline.pendingColor = new Color(0.04f, 0.05f, 0.06f);
+            // No bloom or tonemapping on Quest, so emission clips at 1 per channel. These are
+            // picked to land on cyan and amber after clipping, not on white and yellow.
+            timeline.activeColor = new Color(0.45f, 1.2f, 1.6f);
+            timeline.doneColor = new Color(0.15f, 0.45f, 0.65f);
+            timeline.gpuColor = new Color(1.3f, 0.62f, 0.15f);
+            return dashboard;
         }
 
         /// <summary>
-        /// A label over every part the sequence asks for, shown as the part seats. Cards
-        /// alternate heights, since at 9 cm apart their labels would otherwise touch.
+        /// A label over every part the sequence asks for, shown as the part seats and gone
+        /// again a few seconds later, so the finished rig is clean. Cards alternate heights,
+        /// since at 9 cm apart their labels would otherwise touch.
         /// </summary>
         static void BuildPartLabels(AssemblySequence sequence, Dictionary<string, GameObject> partObjects,
                                     AssemblyPlayer assembly)
@@ -540,13 +608,13 @@ namespace OCS.VR.EditorTools
                 if (offset == Vector3.zero)
                 {
                     offset = new Vector3(0f, size.y / 2f + 0.07f, 0f);
-                    if (step.kind == PartKind.Gpu && step.cardIndex % 2 == 1) offset.y += 0.05f;
+                    if (step.kind == PartKind.Gpu && step.cardIndex % 2 == 1) offset.y += 0.04f;
                 }
 
-                TextMesh text = Text("Label " + step.stepId, root.transform, Vector3.zero, 0.007f, 60,
+                TextMesh text = Text("Label " + step.stepId, root.transform, Vector3.zero, PartLabelHeight,
                                      TextAnchor.LowerCenter, TextColour, step.LabelText);
                 text.gameObject.AddComponent<FaceCamera>();
-                LineRenderer leader = Line("Leader", text.transform, 0.0015f, new Color(0.7f, 0.8f, 0.95f, 0.6f));
+                LineRenderer leader = Line("Leader", text.transform, 0.001f, new Color(Cyan.r, Cyan.g, Cyan.b, 0.5f));
 
                 PartLabel label = text.gameObject.AddComponent<PartLabel>();
                 label.assembly = assembly;
@@ -582,15 +650,18 @@ namespace OCS.VR.EditorTools
         }
 
         /// <summary>
-        /// A dim server room around the play area: dark floor, walls and ceiling, and a few
-        /// glowing strips for atmosphere. The strips are emissive surfaces, not lights, so
-        /// they cost nothing at runtime. Everything sits under one "Environment" object so
-        /// it can be saved as a prefab and edited by hand.
+        /// A dark, quiet room: near black floor, walls and ceiling, and one ring of light on
+        /// the floor. Nothing in it competes with the rig or the system view. Everything
+        /// sits under one "Environment" object so it can be saved as a prefab and edited
+        /// by hand.
         /// </summary>
         static void BuildDefaultRoom()
         {
             GameObject env = new GameObject("Environment");
             RoomAtmosphere atmosphere = env.AddComponent<RoomAtmosphere>();
+            // The walls are near black, so ambient light mostly lands on the rig. Enough to
+            // see the cards and frame in the dark without a second light.
+            atmosphere.ambient = new Color(0.2f, 0.21f, 0.25f);
             atmosphere.Apply();
 
             // 10 x 10 m, 3.2 m high, centred a little ahead of the viewer so the bench,
@@ -612,25 +683,30 @@ namespace OCS.VR.EditorTools
             RoomSlab(env, "Wall Left", new Vector3(-halfWidth, height / 2f, zMid), new Vector3(wall, height, depth), "RoomWall");
             RoomSlab(env, "Wall Right", new Vector3(halfWidth, height / 2f, zMid), new Vector3(wall, height, depth), "RoomWall");
 
-            // Light strips along the top of each side wall. None on the back wall: from the
-            // viewer's spot a line there runs behind the system view, the timeline or the card
-            // readout, and reads as part of them.
-            RoomSlab(env, "Strip Left", new Vector3(-halfWidth + wall, 3.05f, zMid), new Vector3(0.02f, 0.03f, depth * 0.8f), "StripLight");
-            RoomSlab(env, "Strip Right", new Vector3(halfWidth - wall, 3.05f, zMid), new Vector3(0.02f, 0.03f, depth * 0.8f), "StripLight");
-
-            // Two server racks against the back wall, rows of status lights down their fronts.
-            // Outside the width of the system view, so they frame it without competing.
-            foreach (float x in new[] { -2.4f, 2.4f })
+            // A thin ring of light on the floor around the bench: the stage. The only thing in
+            // the room that glows, so the eye goes to the rig and not the walls. A line, not
+            // a light: it costs nothing.
+            const int ringPoints = 96;
+            const float ringRadius = 0.95f;
+            GameObject ringGo = new GameObject("Floor Ring");
+            ringGo.transform.SetParent(env.transform, false);
+            LineRenderer ring = ringGo.AddComponent<LineRenderer>();
+            ring.useWorldSpace = false;
+            ring.loop = true;
+            ring.positionCount = ringPoints;
+            ring.widthMultiplier = 0.008f;
+            ring.alignment = LineAlignment.TransformZ;
+            ringGo.transform.localPosition = new Vector3(RigPosition.x, 0.004f, RigPosition.z);
+            ringGo.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);   // lie flat
+            for (int i = 0; i < ringPoints; i++)
             {
-                const float rackH = 2.0f, rackD = 0.9f;
-                float rackZ = zFar - wall - rackD / 2f - 0.05f;
-                RoomSlab(env, "Rack", new Vector3(x, rackH / 2f, rackZ), new Vector3(0.6f, rackH, rackD), "RackBody");
-                for (int row = 0; row < 10; row++)
-                {
-                    RoomSlab(env, "Rack Light", new Vector3(x - 0.08f, 0.3f + 0.16f * row, rackZ - rackD / 2f - 0.006f),
-                             new Vector3(0.30f, 0.012f, 0.01f), row % 3 == 0 ? "RackLedBlue" : "RackLedGreen");
-                }
+                float a = i * Mathf.PI * 2f / ringPoints;
+                ring.SetPosition(i, new Vector3(Mathf.Cos(a) * ringRadius, Mathf.Sin(a) * ringRadius, 0f));
             }
+            ring.startColor = ring.endColor = new Color(Cyan.r, Cyan.g, Cyan.b, 0.35f);
+            ring.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            ring.receiveShadows = false;
+            if (Materials.ContainsKey("Trail")) ring.sharedMaterial = Materials["Trail"];
         }
 
         static void RoomSlab(GameObject parent, string name, Vector3 position, Vector3 size, string material)
@@ -774,7 +850,8 @@ namespace OCS.VR.EditorTools
         /// is too big for the table, so it waits on a stand to the right and slides across
         /// onto the bench at the same height. Returns the tray transform.
         /// </summary>
-        static Transform LayOutTray(AssemblySequence sequence, Dictionary<string, GameObject> partObjects, Transform partsParent)
+        static Transform LayOutTray(AssemblySequence sequence, Dictionary<string, GameObject> partObjects, Transform partsParent,
+                                    out Transform frameStand)
         {
             const int rows = 3;
             var width = new float[rows];
@@ -820,15 +897,20 @@ namespace OCS.VR.EditorTools
             table.transform.SetParent(tray.transform, false);
             table.transform.localPosition = new Vector3(0f, -0.03f, 0f);
             table.transform.localScale = new Vector3(trayWidth + 0.1f, 0.06f, trayDepth + 0.1f);
-            Paint(table, "Bench");
-            Pedestal(tray.transform.position, trayWidth, trayDepth);
+            Paint(table, "Plinth");
+            Pedestal(tray.transform, trayWidth, trayDepth);
 
+            // Its own object, top and pedestal together, so it can sink away as one.
+            GameObject standRoot = new GameObject("Frame Stand");
+            standRoot.transform.position = FrameStandPosition;
             GameObject stand = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            stand.name = "Frame Stand";
-            stand.transform.position = FrameStandPosition + new Vector3(0f, -0.03f, 0f);
+            stand.name = "Top";
+            stand.transform.SetParent(standRoot.transform, false);
+            stand.transform.localPosition = new Vector3(0f, -0.03f, 0f);
             stand.transform.localScale = new Vector3(1.05f, 0.06f, 0.6f);
-            Paint(stand, "Bench");
-            Pedestal(FrameStandPosition, 0.95f, 0.5f);
+            Paint(stand, "Plinth");
+            Pedestal(standRoot.transform, 0.95f, 0.5f);
+            frameStand = standRoot.transform;
 
             foreach (AssemblyStep step in sequence.steps)
             {
@@ -850,15 +932,19 @@ namespace OCS.VR.EditorTools
             return tray.transform;
         }
 
-        /// <summary>A dark block from the floor up to a surface, so tables don't float.</summary>
-        static void Pedestal(Vector3 topCentre, float width, float depth)
+        /// <summary>
+        /// A dark block from the floor up to a surface, so tables don't float. A child of the
+        /// surface, whose origin is its top centre, so the two move together.
+        /// </summary>
+        static void Pedestal(Transform top, float width, float depth)
         {
             GameObject block = GameObject.CreatePrimitive(PrimitiveType.Cube);
             block.name = "Pedestal";
-            float height = topCentre.y - 0.06f;
-            block.transform.position = new Vector3(topCentre.x, height / 2f, topCentre.z);
+            block.transform.SetParent(top, false);
+            float height = top.position.y - 0.06f;
+            block.transform.localPosition = new Vector3(0f, -0.06f - height / 2f, 0f);
             block.transform.localScale = new Vector3(width, height, depth);
-            Paint(block, "BenchDark");
+            Paint(block, "PlinthBase");
         }
 
         // ----------------------------------------------------------- placeholders
@@ -973,9 +1059,8 @@ namespace OCS.VR.EditorTools
         {
             Materials.Clear();
             EnsureFolder(MaterialsDir);
-            Mat("Floor", new Color(0.30f, 0.31f, 0.33f), 0f, 0.2f);
-            Mat("Bench", new Color(0.42f, 0.30f, 0.20f), 0f, 0.35f);
-            Mat("BenchDark", new Color(0.18f, 0.18f, 0.19f), 0f, 0.3f);
+            Mat("Plinth", new Color(0.10f, 0.105f, 0.12f), 0f, 0.45f);
+            Mat("PlinthBase", new Color(0.035f, 0.038f, 0.045f), 0f, 0.3f);
             Mat("Shroud", new Color(0.08f, 0.08f, 0.09f), 0.2f, 0.55f);
             Mat("ShroudAccent", new Color(0.55f, 0.56f, 0.58f), 0.9f, 0.7f);
             Mat("FanBlack", new Color(0.03f, 0.03f, 0.03f), 0f, 0.4f);
@@ -984,53 +1069,56 @@ namespace OCS.VR.EditorTools
             Mat("Aluminium", new Color(0.78f, 0.79f, 0.80f), 1f, 0.6f);
             Mat("BlackPlastic", new Color(0.05f, 0.05f, 0.05f), 0f, 0.3f);
             Mat("PSUBody", new Color(0.10f, 0.10f, 0.11f), 0.6f, 0.6f);
-            Mat("Node", new Color(0.20f, 0.30f, 0.45f), 0f, 0.5f);
+            // Faintly self lit, so the panels read against a dark room whatever the lighting.
+            Mat("NodePanel", new Color(0.07f, 0.085f, 0.10f), 0.3f, 0.6f, emissive: true, emission: new Color(0.05f, 0.065f, 0.085f));
+            Mat("NodeAccent", Cyan, 0f, 0.5f, emissive: true, emission: new Color(0.04f, 0.12f, 0.18f));
             Mat("LED", new Color(0.9f, 0.9f, 0.9f), 0f, 0.7f, emissive: true);
-            Mat("Pulse", new Color(0.9f, 0.9f, 1.0f), 0f, 0.7f, emissive: true, emission: new Color(1.2f, 1.4f, 2.0f));
-            Mat("RoomFloor", new Color(0.07f, 0.075f, 0.085f), 0f, 0.45f);
-            Mat("RoomWall", new Color(0.10f, 0.105f, 0.12f), 0f, 0.2f);
-            Mat("StripLight", new Color(0.8f, 0.9f, 1.0f), 0f, 0.5f, emissive: true, emission: new Color(0.9f, 1.1f, 1.4f));
+            Mat("Pulse", new Color(0.9f, 0.95f, 1.0f), 0f, 0.7f, emissive: true, emission: new Color(0.9f, 1.8f, 2.6f));
+            Mat("RoomFloor", new Color(0.035f, 0.038f, 0.045f), 0f, 0.55f);
+            Mat("RoomWall", new Color(0.03f, 0.032f, 0.038f), 0f, 0.1f);
             Mat("FrameBlack", new Color(0.03f, 0.03f, 0.035f), 0.8f, 0.65f);
-            Mat("RackBody", new Color(0.05f, 0.055f, 0.06f), 0.5f, 0.4f);
-            Mat("RackLedGreen", new Color(0.1f, 0.4f, 0.2f), 0f, 0.5f, emissive: true, emission: new Color(0.2f, 1.4f, 0.5f));
-            Mat("RackLedBlue", new Color(0.1f, 0.2f, 0.4f), 0f, 0.5f, emissive: true, emission: new Color(0.3f, 0.7f, 1.6f));
-            // Sprites/Default blends by vertex colour, which is how the trail fades out.
+            // Sprites/Default blends by vertex colour, which is how lines and trails fade.
             Mat("Trail", Color.white, 0f, 0f, shader: "Sprites/Default");
-            Mat("TimelineSegment", new Color(0.06f, 0.08f, 0.1f), 0f, 0.5f, emissive: true, emission: new Color(0.05f, 0.08f, 0.12f));
+            Mat("TimelineSegment", new Color(0.06f, 0.08f, 0.1f), 0f, 0.5f, emissive: true, emission: new Color(0.04f, 0.05f, 0.06f));
         }
 
         /// <summary>
-        /// Reuses the asset if it exists, so rebuilding the scene doesn't churn material
-        /// GUIDs or undo tweaks someone made in the inspector.
+        /// Creates the material the first time and rewrites its settings on every build, so
+        /// a rebuild always gives the look this script describes. The asset itself is
+        /// reused, which keeps its GUID and every reference to it. Change colours here,
+        /// not in the inspector.
         /// </summary>
         static void Mat(string name, Color color, float metallic, float smoothness,
                         bool emissive = false, Color? emission = null,
                         string shader = "Universal Render Pipeline/Lit")
         {
+            Shader found = Shader.Find(shader);
+            if (found == null)
+            {
+                Debug.LogError("[SceneBuilder] Shader '" + shader + "' not found. Is this a URP project?");
+                return;
+            }
+
             string path = MaterialsDir + "/" + name + ".mat";
             Material mat = AssetDatabase.LoadAssetAtPath<Material>(path);
-            if (mat == null)
+            bool created = mat == null;
+            if (created) mat = new Material(found);
+            else if (mat.shader != found) mat.shader = found;
+
+            mat.SetColor("_BaseColor", color);
+            mat.SetFloat("_Metallic", metallic);
+            mat.SetFloat("_Smoothness", smoothness);
+            if (emissive)
             {
-                Shader found = Shader.Find(shader);
-                if (found == null)
-                {
-                    Debug.LogError("[SceneBuilder] Shader '" + shader + "' not found. Is this a URP project?");
-                    return;
-                }
-                mat = new Material(found);
-                mat.SetColor("_BaseColor", color);
-                mat.SetFloat("_Metallic", metallic);
-                mat.SetFloat("_Smoothness", smoothness);
-                if (emissive)
-                {
-                    // Emission must be switched on in the material itself. A property block
-                    // can change its colour at runtime but can't turn the feature on.
-                    mat.EnableKeyword("_EMISSION");
-                    mat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
-                    mat.SetColor("_EmissionColor", emission ?? Color.black);
-                }
-                AssetDatabase.CreateAsset(mat, path);
+                // Emission must be switched on in the material itself. A property block
+                // can change its colour at runtime but can't turn the feature on.
+                mat.EnableKeyword("_EMISSION");
+                mat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
+                mat.SetColor("_EmissionColor", emission ?? Color.black);
             }
+
+            if (created) AssetDatabase.CreateAsset(mat, path);
+            else EditorUtility.SetDirty(mat);
             Materials[name] = mat;
         }
 
