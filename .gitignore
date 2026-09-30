@@ -21,6 +21,7 @@ ExportedObj/
 *.csproj
 *.unityproj
 *.sln
+*.slnx
 *.suo
 *.user
 *.userprefs
@@ -31,6 +32,9 @@ ExportedObj/
 *.mdb
 *.opendb
 *.VC.db
+
+# Per-machine Claude Code settings. Shared ones go in .claude/settings.json.
+.claude/settings.local.json
 
 # Build outputs
 *.apk
