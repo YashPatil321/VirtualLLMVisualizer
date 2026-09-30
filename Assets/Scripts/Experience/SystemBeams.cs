@@ -46,6 +46,14 @@ namespace OCS.VR.Experience
                  "bottom of the panel rather than its middle.")]
         public float cardBeamDrop = 0.05f;
 
+        [Tooltip("Optional. A glow over the working card, as bright as the card is busy.")]
+        public Renderer cardHalo;
+        [ColorUsage(true, true)] public Color haloColor = new Color(2.0f, 0.9f, 0.25f, 0.9f);
+        public float haloSize = 0.5f;
+
+        static readonly int ColorId = Shader.PropertyToID("_Color");
+        MaterialPropertyBlock _block;
+
         BeamGlowState _state;
         int _cardIndex = -1;
         int _cardNode = -1;
@@ -129,6 +137,7 @@ namespace OCS.VR.Experience
 
             bool on = load > 0.02f && from != null && to != null;
             if (cardBeam.enabled != on) cardBeam.enabled = on;
+            UpdateHalo(on, to, load);
             if (!on) return;
 
             cardBeam.SetPosition(0, from.position + Vector3.down * cardBeamDrop);
@@ -138,6 +147,23 @@ namespace OCS.VR.Experience
             c.a *= load;
             cardBeam.startColor = c;
             cardBeam.endColor = c;
+        }
+
+        void UpdateHalo(bool on, Transform card, float load)
+        {
+            if (cardHalo == null) return;
+            if (cardHalo.enabled != on) cardHalo.enabled = on;
+            if (!on) return;
+            // A slow throb on top of the load, so it reads as working rather than lit.
+            float throb = 0.85f + 0.15f * Mathf.Sin(Time.time * 7f);
+            cardHalo.transform.position = card.position + Vector3.up * 0.06f;
+            cardHalo.transform.localScale = Vector3.one * (haloSize * (0.6f + 0.4f * load) * throb);
+            if (_block == null) _block = new MaterialPropertyBlock();
+            Color c = haloColor;
+            c.a *= load;
+            cardHalo.GetPropertyBlock(_block);
+            _block.SetColor(ColorId, c);
+            cardHalo.SetPropertyBlock(_block);
         }
 
         Transform Marker(int node)

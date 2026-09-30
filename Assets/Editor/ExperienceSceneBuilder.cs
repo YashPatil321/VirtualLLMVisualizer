@@ -48,7 +48,11 @@ namespace OCS.VR.EditorTools
         // make over the rig, which is also the point the view grows out of at power on.
         // SystemGraph.asset positions are relative to it; Rig 2's node is straight above
         // the real rig, so the beam from it drops onto the working card.
-        static readonly Vector3 SystemViewPosition = new Vector3(0f, 1.8f, 1.35f);
+        static readonly Vector3 SystemViewPosition = new Vector3(0f, 2.4f, 3.6f);
+
+        // The system view is built big, out over the hall: panels, text, the pulse and
+        // the beams are all this many times their desk size, and read from four metres.
+        const float ViewScale = 2.2f;
 
         // Node panels, metres.
         // Name on top, caption under it, both inside the panel, so nothing hangs below it
@@ -61,9 +65,14 @@ namespace OCS.VR.EditorTools
         static readonly Vector3 DashboardPosition = new Vector3(0f, 0.95f, 0.40f);
         const float TimelineWidth = 0.9f;
 
-        // The readout sits just right of the beam, halfway between the card and Rig 2's
-        // panel, so the beam itself connects the numbers to the card they describe.
-        static readonly Vector3 ReadoutOffset = new Vector3(0.07f, 0.26f, 0f);
+        // The readout sits just left of the beam, between the card and Rig 2's panel, so
+        // the beam itself connects the numbers to the card they describe. Left, because
+        // the answer panel and its stream of tokens are on the right.
+        static readonly Vector3 ReadoutOffset = new Vector3(-0.1f, 0.24f, 0f);
+
+        // The answer panel: right of the rig, below eye level, facing the viewer.
+        static readonly Vector3 AnswerPosition = new Vector3(1.2f, 1.42f, 1.55f);
+        static readonly Vector2 AnswerSize = new Vector2(0.95f, 0.52f);
 
         // One palette. Cyan is the software and the network; amber is the GPU working.
         // Everything else is near black or grey, so the two colours carry the story.
@@ -285,37 +294,45 @@ namespace OCS.VR.EditorTools
                 marker.transform.rotation = FacingViewer(marker.transform.position);
                 markers[i] = marker.transform;
 
-                Child(marker, "Panel", PrimitiveType.Cube, Vector3.zero, PanelSize, "NodePanel");
+                Vector3 panel = PanelSize * ViewScale;
+                Child(marker, "Panel", PrimitiveType.Cube, Vector3.zero, panel, "NodePanel");
                 GameObject accent = Child(marker, "Accent", PrimitiveType.Cube,
-                                          new Vector3(0f, -PanelSize.y / 2f + 0.003f, -PanelSize.z / 2f - 0.001f),
-                                          new Vector3(PanelSize.x - 0.02f, 0.004f, 0.002f), "NodeAccent");
+                                          new Vector3(0f, -panel.y / 2f + 0.006f, -panel.z / 2f - 0.002f),
+                                          new Vector3(panel.x - 0.04f, 0.009f, 0.003f), "NodeAccent");
                 accents[i] = accent.GetComponent<Renderer>();
+                // The accent's glow: a soft line of light spilling past the panel's edge.
+                GlowQuad("Accent Glow", marker.transform, new Vector3(0f, -panel.y / 2f + 0.006f, -panel.z / 2f - 0.004f),
+                         new Vector3(panel.x * 1.1f, 0.09f, 1f), "GlowBeamSoft");
 
-                float front = -PanelSize.z / 2f - 0.002f;
-                Text("Name", marker.transform, new Vector3(0f, 0.03f, front), NodeNameHeight,
+                float front = -panel.z / 2f - 0.003f;
+                Text("Name", marker.transform, new Vector3(0f, 0.03f * ViewScale, front), NodeNameHeight * ViewScale,
                      TextAnchor.MiddleCenter, TextColour, node.DisplayLabel);
-                captions[i] = Text("Caption", marker.transform, new Vector3(0f, -0.004f, front),
-                                   NodeCaptionHeight, TextAnchor.UpperCenter, CaptionColour);
+                captions[i] = Text("Caption", marker.transform, new Vector3(0f, -0.004f * ViewScale, front),
+                                   NodeCaptionHeight * ViewScale, TextAnchor.UpperCenter, CaptionColour);
             }
 
             GameObject pulse = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             pulse.name = "Pulse";
             pulse.transform.SetParent(systemView.transform, false);
-            pulse.transform.localScale = Vector3.one * 0.04f;
+            pulse.transform.localScale = Vector3.one * (0.04f * ViewScale);
             RemoveCollider(pulse);
             Paint(pulse, "Pulse");
+            // A halo round the pulse, so it reads as a ball of light rather than a bead.
+            GameObject halo = GlowQuad("Halo", pulse.transform, Vector3.zero, Vector3.one * (0.7f / (0.04f * ViewScale)),
+                                       "GlowBlobCyan");
+            halo.AddComponent<FaceCamera>().tilt = true;
 
             // A short fading trail, so the request reads as something travelling rather than
             // a dot teleporting between panels. Width is in world metres.
             TrailRenderer trail = pulse.AddComponent<TrailRenderer>();
-            trail.time = 0.4f;
-            trail.widthMultiplier = 0.018f;
+            trail.time = 0.55f;
+            trail.widthMultiplier = 0.06f;
             trail.minVertexDistance = 0.01f;
             trail.startColor = new Color(Cyan.r, Cyan.g, Cyan.b, 0.9f);
             trail.endColor = new Color(Cyan.r, Cyan.g, Cyan.b, 0f);
             trail.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             trail.receiveShadows = false;
-            if (Materials.ContainsKey("Trail")) trail.sharedMaterial = Materials["Trail"];
+            if (Materials.ContainsKey("GlowBeam")) trail.sharedMaterial = Materials["GlowBeam"];
 
             SystemViewDisplay sysView = systemView.AddComponent<SystemViewDisplay>();
             sysView.player = player;
@@ -336,6 +353,8 @@ namespace OCS.VR.EditorTools
             BuildCardReadout(cardDisplay, player);
             GameObject dashboard = BuildDashboard(trace, player, out GameObject timeline);
             BuildPartLabels(sequence, partObjects, assembly);
+            GameObject answer = BuildAnswerPanel(player);
+            BuildTokenStream(player, cardDisplay, answer.transform.Find("Response"));
 
             // ---------- narration ----------
             TextMesh narrationText = Text("Narration", dashboard.transform, new Vector3(0f, 0.035f, 0f), NarrationHeight,
@@ -379,7 +398,16 @@ namespace OCS.VR.EditorTools
                 new StageCue { target = frameStand, act = Act.PowerOn, move = StageMove.Sink, delay = 0.6f, duration = 2.5f, depth = 1f },
                 new StageCue { target = systemView.transform, act = Act.PowerOn, move = StageMove.Appear, delay = 1.8f, duration = 1.4f },
                 new StageCue { target = timeline.transform, act = Act.Request, move = StageMove.Appear, delay = 0f, duration = 0.6f },
+                new StageCue { target = answer.transform, act = Act.Request, move = StageMove.Appear, delay = 0f, duration = 0.8f },
             };
+
+            // ---------- the hall reacting ----------
+            WorldPulseDriver pulseDriver = experience.AddComponent<WorldPulseDriver>();
+            pulseDriver.sequencer = sequencer;
+            pulseDriver.player = player;
+            pulseDriver.centre = rigRoot.transform;
+
+            BuildBursts(experience, assembly, sequencer, player, cardDisplay, sysView, graph);
 
             // ---------- save ----------
             EnsureFolder("Assets/Scenes");
@@ -452,8 +480,118 @@ namespace OCS.VR.EditorTools
             line.endColor = colour;
             line.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             line.receiveShadows = false;
-            if (Materials.ContainsKey("Trail")) line.sharedMaterial = Materials["Trail"];
+            if (Materials.ContainsKey("GlowBeam")) line.sharedMaterial = Materials["GlowBeam"];
             return line;
+        }
+
+        const string MeshesDir = "Assets/Art/Meshes";
+        static Mesh _glowQuadMesh;
+
+        /// <summary>
+        /// A unit quad facing -Z with white vertex colours. The glow shader multiplies by
+        /// vertex colour, and Unity's own quad has none, so glow quads use this one.
+        /// </summary>
+        static Mesh GlowQuadMesh()
+        {
+            if (_glowQuadMesh != null) return _glowQuadMesh;
+            string path = MeshesDir + "/GlowQuad.asset";
+            _glowQuadMesh = AssetDatabase.LoadAssetAtPath<Mesh>(path);
+            if (_glowQuadMesh != null) return _glowQuadMesh;
+
+            EnsureFolder(MeshesDir);
+            var mesh = new Mesh { name = "GlowQuad" };
+            mesh.vertices = new[]
+            {
+                new Vector3(-0.5f, -0.5f, 0f), new Vector3(0.5f, -0.5f, 0f),
+                new Vector3(-0.5f, 0.5f, 0f), new Vector3(0.5f, 0.5f, 0f)
+            };
+            mesh.uv = new[] { new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(0f, 1f), new Vector2(1f, 1f) };
+            mesh.colors = new[] { Color.white, Color.white, Color.white, Color.white };
+            mesh.triangles = new[] { 0, 2, 1, 2, 3, 1 };
+            mesh.RecalculateBounds();
+            AssetDatabase.CreateAsset(mesh, path);
+            _glowQuadMesh = mesh;
+            return mesh;
+        }
+
+        /// <summary>A glow quad: soft additive light in the shape its material says.</summary>
+        static GameObject GlowQuad(string name, Transform parent, Vector3 localPosition, Vector3 localScale, string material)
+        {
+            GameObject go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = localPosition;
+            go.transform.localScale = localScale;
+            go.AddComponent<MeshFilter>().sharedMesh = GlowQuadMesh();
+            MeshRenderer r = go.AddComponent<MeshRenderer>();
+            r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            r.receiveShadows = false;
+            Material mat;
+            if (Materials.TryGetValue(material, out mat)) r.sharedMaterial = mat;
+            return go;
+        }
+
+        /// <summary>A flat ring of light, lying on the floor or hanging in the air.</summary>
+        static LineRenderer LightRing(string name, Transform parent, Vector3 centre, float radius, float width, Color colour)
+        {
+            const int points = 96;
+            GameObject go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = centre;
+            go.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);   // lie flat
+            LineRenderer ring = go.AddComponent<LineRenderer>();
+            ring.useWorldSpace = false;
+            ring.loop = true;
+            ring.positionCount = points;
+            ring.widthMultiplier = width;
+            ring.alignment = LineAlignment.TransformZ;
+            for (int i = 0; i < points; i++)
+            {
+                float a = i * Mathf.PI * 2f / points;
+                ring.SetPosition(i, new Vector3(Mathf.Cos(a) * radius, Mathf.Sin(a) * radius, 0f));
+            }
+            ring.startColor = ring.endColor = colour;
+            ring.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            ring.receiveShadows = false;
+            if (Materials.ContainsKey("GlowBeam")) ring.sharedMaterial = Materials["GlowBeam"];
+            return ring;
+        }
+
+        /// <summary>A particle system set up the way every one here wants it.</summary>
+        static ParticleSystem Particles(string name, Transform parent, string material, int max,
+                                        float lifetime, MinMaxCurve speed, MinMaxCurve size, Color colour)
+        {
+            GameObject go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            ParticleSystem ps = go.AddComponent<ParticleSystem>();
+            var main = ps.main;
+            main.loop = true;
+            main.playOnAwake = true;
+            main.duration = 5f;
+            main.startLifetime = lifetime;
+            main.startSpeed = speed;
+            main.startSize = size;
+            main.startColor = colour;
+            main.maxParticles = max;
+            main.simulationSpace = ParticleSystemSimulationSpace.World;
+            main.scalingMode = ParticleSystemScalingMode.Hierarchical;
+            var emission = ps.emission;
+            emission.rateOverTime = 0f;
+
+            // Fade in fast, fade out slowly.
+            var fade = new Gradient();
+            fade.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
+                         new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(1f, 0.1f), new GradientAlphaKey(0f, 1f) });
+            var col = ps.colorOverLifetime;
+            col.enabled = true;
+            col.color = fade;
+
+            ParticleSystemRenderer r = go.GetComponent<ParticleSystemRenderer>();
+            r.renderMode = ParticleSystemRenderMode.Billboard;
+            r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            r.receiveShadows = false;
+            Material mat;
+            if (Materials.TryGetValue(material, out mat)) r.sharedMaterial = mat;
+            return ps;
         }
 
         /// <summary>
@@ -495,11 +633,11 @@ namespace OCS.VR.EditorTools
                 }
             }
 
-            var idle = new Color(Cyan.r, Cyan.g, Cyan.b, 0.12f);
+            var idle = new Color(Cyan.r, Cyan.g, Cyan.b, 0.18f);
             var lines = new LineRenderer[from.Count];
             for (int e = 0; e < from.Count; e++)
                 lines[e] = Line("Beam " + graph.nodes[from[e]].nodeId + " - " + graph.nodes[to[e]].nodeId,
-                                systemView.transform, 0.003f, idle);
+                                systemView.transform, 0.008f, idle);
 
             // Narrow where it leaves the panel, full width where it lands on the card, so it
             // reads as light falling onto the card rather than a bar joining two things.
@@ -518,23 +656,120 @@ namespace OCS.VR.EditorTools
             beams.cardBeam = cardBeam;
             beams.idleColor = idle;
             beams.litColor = new Color(Cyan.r, Cyan.g, Cyan.b, 0.95f);
-            beams.idleWidth = 0.003f;
-            beams.litWidth = 0.012f;
+            beams.idleWidth = 0.008f;
+            beams.litWidth = 0.05f;
             beams.cardBeamColor = new Color(Amber.r, Amber.g, Amber.b, 0.85f);
-            beams.cardBeamWidth = 0.04f;
-            beams.cardBeamDrop = PanelSize.y / 2f;
+            beams.cardBeamWidth = 0.12f;
+            beams.cardBeamDrop = PanelSize.y * ViewScale / 2f;
+
+            // The glow on the working card, as bright as the card is busy.
+            GameObject halo = GlowQuad("Card Halo", null, Vector3.zero, Vector3.one, "GlowBlob");
+            halo.AddComponent<FaceCamera>().tilt = true;
+            beams.cardHalo = halo.GetComponent<Renderer>();
+            beams.haloSize = 0.7f;
         }
 
         /// <summary>The readout beside whichever card is working.</summary>
         static void BuildCardReadout(RigCardDisplay rig, TracePlayer player)
         {
-            TextMesh text = Text("Card Readout", null, Vector3.zero, ReadoutHeight, TextAnchor.LowerLeft, ReadoutColour);
+            TextMesh text = Text("Card Readout", null, Vector3.zero, ReadoutHeight, TextAnchor.LowerRight, ReadoutColour);
             text.gameObject.AddComponent<FaceCamera>();
             CardTelemetryLabel label = text.gameObject.AddComponent<CardTelemetryLabel>();
             label.player = player;
             label.rig = rig;
             label.text = text;
             label.offset = ReadoutOffset;
+        }
+
+        /// <summary>
+        /// The prompt, and the answer typing itself out as the card generates it: a dark
+        /// panel right of the rig with a cyan and an amber edge, the colours of the two
+        /// halves of the story.
+        /// </summary>
+        static GameObject BuildAnswerPanel(TracePlayer player)
+        {
+            GameObject root = new GameObject("Answer Panel");
+            root.transform.position = AnswerPosition;
+            root.transform.rotation = FacingViewer(AnswerPosition);
+
+            float w = AnswerSize.x, h = AnswerSize.y;
+            Child(root, "Panel", PrimitiveType.Cube, Vector3.zero, new Vector3(w, h, 0.01f), "NodePanel");
+            float front = -0.008f;
+            Child(root, "Top Edge", PrimitiveType.Cube, new Vector3(0f, h / 2f - 0.003f, front), new Vector3(w, 0.006f, 0.003f), "NodeAccentLit");
+            Child(root, "Bottom Edge", PrimitiveType.Cube, new Vector3(0f, -h / 2f + 0.003f, front), new Vector3(w, 0.006f, 0.003f), "EdgeAmber");
+            GlowQuad("Top Glow", root.transform, new Vector3(0f, h / 2f, front - 0.002f), new Vector3(w * 1.1f, 0.12f, 1f), "GlowBeamSoft");
+
+            float left = -w / 2f + 0.05f;
+            Text("Prompt Label", root.transform, new Vector3(left, h / 2f - 0.04f, front), 0.022f, TextAnchor.UpperLeft,
+                 new Color(Cyan.r, Cyan.g, Cyan.b), "PROMPT");
+            TextMesh prompt = Text("Prompt", root.transform, new Vector3(left, h / 2f - 0.07f, front), 0.03f,
+                                   TextAnchor.UpperLeft, TextColour);
+            Text("Response Label", root.transform, new Vector3(left, h / 2f - 0.17f, front), 0.022f, TextAnchor.UpperLeft,
+                 Amber, "RESPONSE  ·  RIG 2, GPU 3");
+            TextMesh response = Text("Response", root.transform, new Vector3(left, h / 2f - 0.2f, front), 0.03f,
+                                     TextAnchor.UpperLeft, ReadoutColour);
+
+            AnswerPanel panel = root.AddComponent<AnswerPanel>();
+            panel.player = player;
+            panel.prompt = prompt;
+            panel.response = response;
+            panel.charsPerLine = 40;
+            panel.maxLines = 6;
+            return root;
+        }
+
+        /// <summary>Glowing tokens streaming off the working card into the answer panel.</summary>
+        static void BuildTokenStream(TracePlayer player, RigCardDisplay rig, Transform target)
+        {
+            ParticleSystem tokens = Particles("Token Stream", null, "GlowBlob", 400, 0.9f,
+                                              1.5f, new MinMaxCurve(0.025f, 0.045f), new Color(1f, 0.62f, 0.2f, 1f));
+            var shape = tokens.shape;
+            shape.enabled = true;
+            shape.shapeType = ParticleSystemShapeType.Cone;
+            shape.angle = 7f;
+            shape.radius = 0.02f;
+            var size = tokens.sizeOverLifetime;
+            size.enabled = true;
+            size.size = new MinMaxCurve(1f, new AnimationCurve(new Keyframe(0f, 0.6f), new Keyframe(0.3f, 1f), new Keyframe(1f, 0.3f)));
+
+            TokenStream stream = tokens.gameObject.AddComponent<TokenStream>();
+            stream.player = player;
+            stream.rig = rig;
+            stream.tokens = tokens;
+            stream.target = target;
+        }
+
+        /// <summary>Rings and sparks where things happen: parts seating, power, the answer.</summary>
+        static void BuildBursts(GameObject experience, AssemblyPlayer assembly, ExperienceSequencer sequencer,
+                                TracePlayer player, RigCardDisplay rig, SystemViewDisplay view, SystemGraph graph)
+        {
+            GameObject root = new GameObject("Impact Bursts");
+            var rings = new Renderer[8];
+            for (int i = 0; i < rings.Length; i++)
+            {
+                GameObject ring = GlowQuad("Ring " + i, root.transform, Vector3.zero, Vector3.one, "GlowRing");
+                ring.transform.rotation = Quaternion.Euler(90f, 0f, 0f);          // flat, rushing outward
+                rings[i] = ring.GetComponent<Renderer>();
+            }
+
+            ParticleSystem sparks = Particles("Sparks", root.transform, "GlowBlob", 600, 0.6f,
+                                              new MinMaxCurve(0.5f, 1.8f), new MinMaxCurve(0.012f, 0.024f), Color.white);
+            var main = sparks.main;
+            main.gravityModifier = 0.35f;
+            var shape = sparks.shape;
+            shape.enabled = true;
+            shape.shapeType = ParticleSystemShapeType.Sphere;
+            shape.radius = 0.04f;
+
+            ImpactBursts bursts = experience.AddComponent<ImpactBursts>();
+            bursts.assembly = assembly;
+            bursts.sequencer = sequencer;
+            bursts.player = player;
+            bursts.rig = rig;
+            bursts.view = view;
+            bursts.graph = graph;
+            bursts.rings = rings;
+            bursts.sparks = sparks;
         }
 
         /// <summary>
@@ -667,64 +902,164 @@ namespace OCS.VR.EditorTools
             return false;
         }
 
+        // The hall, in world metres. The stage is its focus: racks line both sides, a sign
+        // on each end wall, the ceiling well above everything.
+        const float HallHalfWidth = 10.5f, HallHeight = 7f, HallNear = -7f, HallFar = 26f;
+        const float RackRowX = 4.6f, OuterRowX = 7.3f;
+        const float RackPitch = 0.62f;
+
         /// <summary>
-        /// A dark, quiet room: near black floor, walls and ceiling, and one ring of light on
-        /// the floor. Nothing in it competes with the rig or the system view. Everything
-        /// sits under one "Environment" object so it can be saved as a prefab and edited
-        /// by hand.
+        /// The data hall around the rig. The rig stands on a lit dais in the middle aisle;
+        /// rows of server racks run the length of the hall on both sides, their lights
+        /// asleep until the rig powers on and the wave reaches them; a glowing grid floor,
+        /// pillars, cable trays, light strips overhead, dust in the air, fog that swallows
+        /// the far end, and a sign on each end wall.
+        ///
+        /// All of it is emissive surfaces and shaders: no lights, no shadows. It is marked
+        /// static, so the racks batch into a few draw calls. Everything sits under one
+        /// "Environment" object so it can be saved as a prefab and edited by hand.
         /// </summary>
         static void BuildDefaultRoom()
         {
             GameObject env = new GameObject("Environment");
             RoomAtmosphere atmosphere = env.AddComponent<RoomAtmosphere>();
-            // The walls are near black, so ambient light mostly lands on the rig. Enough to
-            // see the cards and frame in the dark without a second light.
             atmosphere.ambient = new Color(0.2f, 0.21f, 0.25f);
+            atmosphere.background = new Color(0.016f, 0.022f, 0.034f);
+            atmosphere.fog = true;
+            atmosphere.fogColor = atmosphere.background;
+            atmosphere.fogStart = 6f;
+            atmosphere.fogEnd = 30f;
             atmosphere.Apply();
 
-            // 10 x 10 m, 3.2 m high, centred a little ahead of the viewer so the bench,
-            // tray, frame stand and system view all sit well inside it.
-            const float halfWidth = 5f, height = 3.2f, wall = 0.1f;
-            float zNear = -4f, zFar = 6f;
-            float zMid = (zNear + zFar) / 2f, depth = zFar - zNear;
+            float zMid = (HallNear + HallFar) / 2f, depth = HallFar - HallNear;
+            var rng = new System.Random(2);            // the same hall on every build
 
+            // Floor: the grid, and the dark dais the rig and viewer stand on.
             GameObject floor = GameObject.CreatePrimitive(PrimitiveType.Plane);
             floor.name = "Floor";
             floor.transform.SetParent(env.transform, false);
             floor.transform.localPosition = new Vector3(0f, 0f, zMid);
-            floor.transform.localScale = new Vector3(halfWidth * 2f / 10f, 1f, depth / 10f);
-            Paint(floor, "RoomFloor");    // keeps its collider, for teleporting later
+            floor.transform.localScale = new Vector3(HallHalfWidth * 2f / 10f, 1f, depth / 10f);
+            Paint(floor, "GridFloor");                // keeps its collider, for teleporting later
+            floor.isStatic = true;
 
-            RoomSlab(env, "Ceiling", new Vector3(0f, height + wall / 2f, zMid), new Vector3(halfWidth * 2f, wall, depth), "RoomWall");
-            RoomSlab(env, "Wall Back", new Vector3(0f, height / 2f, zFar), new Vector3(halfWidth * 2f, height, wall), "RoomWall");
-            RoomSlab(env, "Wall Front", new Vector3(0f, height / 2f, zNear), new Vector3(halfWidth * 2f, height, wall), "RoomWall");
-            RoomSlab(env, "Wall Left", new Vector3(-halfWidth, height / 2f, zMid), new Vector3(wall, height, depth), "RoomWall");
-            RoomSlab(env, "Wall Right", new Vector3(halfWidth, height / 2f, zMid), new Vector3(wall, height, depth), "RoomWall");
+            Vector3 stage = new Vector3(RigPosition.x, 0f, 0.5f);
+            GameObject dais = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            dais.name = "Dais";
+            dais.transform.SetParent(env.transform, false);
+            dais.transform.localPosition = stage + new Vector3(0f, 0.004f, 0f);
+            dais.transform.localScale = new Vector3(4.6f, 0.004f, 4.6f);
+            RemoveCollider(dais);
+            Paint(dais, "Dais");
+            dais.isStatic = true;
+            LightRing("Dais Edge", env.transform, stage + new Vector3(0f, 0.012f, 0f), 2.3f, 0.025f, new Color(Cyan.r, Cyan.g, Cyan.b, 0.9f));
+            LightRing("Dais Outer", env.transform, stage + new Vector3(0f, 0.012f, 0f), 2.55f, 0.01f, new Color(Cyan.r, Cyan.g, Cyan.b, 0.35f));
+            LightRing("Bench Ring", env.transform, new Vector3(RigPosition.x, 0.012f, RigPosition.z), 0.95f, 0.01f, new Color(Cyan.r, Cyan.g, Cyan.b, 0.35f));
+            // A ring of light hanging over the rig, like a lamp over an operating table.
+            LightRing("Halo", env.transform, new Vector3(RigPosition.x, 3.3f, RigPosition.z), 1.4f, 0.035f, new Color(Cyan.r, Cyan.g, Cyan.b, 0.7f));
+            LightRing("Halo Inner", env.transform, new Vector3(RigPosition.x, 3.3f, RigPosition.z), 1.25f, 0.012f, new Color(Cyan.r, Cyan.g, Cyan.b, 0.3f));
 
-            // A thin ring of light on the floor around the bench: the stage. The only thing in
-            // the room that glows, so the eye goes to the rig and not the walls. A line, not
-            // a light: it costs nothing.
-            const int ringPoints = 96;
-            const float ringRadius = 0.95f;
-            GameObject ringGo = new GameObject("Floor Ring");
-            ringGo.transform.SetParent(env.transform, false);
-            LineRenderer ring = ringGo.AddComponent<LineRenderer>();
-            ring.useWorldSpace = false;
-            ring.loop = true;
-            ring.positionCount = ringPoints;
-            ring.widthMultiplier = 0.008f;
-            ring.alignment = LineAlignment.TransformZ;
-            ringGo.transform.localPosition = new Vector3(RigPosition.x, 0.004f, RigPosition.z);
-            ringGo.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);   // lie flat
-            for (int i = 0; i < ringPoints; i++)
+            // Walls and ceiling, near black, mostly lost in the fog.
+            RoomSlab(env, "Ceiling", new Vector3(0f, HallHeight + 0.05f, zMid), new Vector3(HallHalfWidth * 2f, 0.1f, depth), "RoomWall");
+            RoomSlab(env, "Wall Far", new Vector3(0f, HallHeight / 2f, HallFar), new Vector3(HallHalfWidth * 2f, HallHeight, 0.1f), "RoomWall");
+            RoomSlab(env, "Wall Near", new Vector3(0f, HallHeight / 2f, HallNear), new Vector3(HallHalfWidth * 2f, HallHeight, 0.1f), "RoomWall");
+            RoomSlab(env, "Wall Left", new Vector3(-HallHalfWidth, HallHeight / 2f, zMid), new Vector3(0.1f, HallHeight, depth), "RoomWall");
+            RoomSlab(env, "Wall Right", new Vector3(HallHalfWidth, HallHeight / 2f, zMid), new Vector3(0.1f, HallHeight, depth), "RoomWall");
+
+            // Rack rows. The inner rows face the aisle; the outer ones show through the
+            // gaps. Every eighth rack is left out, a cross aisle, so the rows read as
+            // rows of cabinets and not as walls.
+            foreach (float side in new[] { -1f, 1f })
             {
-                float a = i * Mathf.PI * 2f / ringPoints;
-                ring.SetPosition(i, new Vector3(Mathf.Cos(a) * ringRadius, Mathf.Sin(a) * ringRadius, 0f));
+                RackRow(env, rng, side * RackRowX, -side, HallNear + 2f, HallFar - 4f, true);
+                RackRow(env, rng, side * OuterRowX, -side, HallNear + 2f, HallFar - 4f, false);
+                // Cable trays over the inner rows.
+                RoomSlab(env, "Cable Tray", new Vector3(side * RackRowX, 2.75f, (HallNear + HallFar - 2f) / 2f),
+                         new Vector3(0.45f, 0.06f, HallFar - HallNear - 6f), "FrameBlack");
             }
-            ring.startColor = ring.endColor = new Color(Cyan.r, Cyan.g, Cyan.b, 0.35f);
-            ring.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            ring.receiveShadows = false;
-            if (Materials.ContainsKey("Trail")) ring.sharedMaterial = Materials["Trail"];
+            // A row across the far end, facing back down the hall.
+            for (float x = -3.4f; x <= 3.41f; x += RackPitch)
+                Rack(env, rng, new Vector3(x, 0f, HallFar - 3f), Quaternion.identity, true);
+
+            // Pillars along the walls, each with a strip of light on its inner face.
+            for (float z = HallNear + 3f; z < HallFar - 1f; z += 6f)
+            {
+                foreach (float side in new[] { -1f, 1f })
+                {
+                    float x = side * (HallHalfWidth - 0.6f);
+                    RoomSlab(env, "Pillar", new Vector3(x, HallHeight / 2f, z), new Vector3(0.6f, HallHeight, 0.6f), "Pillar");
+                    RoomSlab(env, "Pillar Light", new Vector3(x - side * 0.31f, HallHeight / 2f, z), new Vector3(0.02f, HallHeight * 0.85f, 0.05f), "StripLight");
+                }
+                // Beams across the ceiling between them.
+                RoomSlab(env, "Ceiling Beam", new Vector3(0f, HallHeight - 0.3f, z), new Vector3(HallHalfWidth * 2f, 0.4f, 0.4f), "Pillar");
+            }
+
+            // Light strips running the length of the ceiling.
+            foreach (float x in new[] { -2.6f, 0f, 2.6f })
+                RoomSlab(env, "Ceiling Strip", new Vector3(x, HallHeight - 0.52f, zMid), new Vector3(0.06f, 0.03f, depth - 2f), "StripLight");
+
+            // Signs. TextMesh ignores fog, so they stay bright at the far end like lit signage.
+            TextMesh far = Text("Sign Far", env.transform, new Vector3(0f, 5.3f, HallFar - 0.1f), 0.9f,
+                                TextAnchor.MiddleCenter, new Color(0.75f, 0.92f, 1f), "OCS  INTELLIGENCE  INFRASTRUCTURE");
+            RoomSlab(env, "Sign Far Line", new Vector3(0f, 4.55f, HallFar - 0.1f), new Vector3(14f, 0.04f, 0.02f), "StripLight");
+            TextMesh near = Text("Sign Near", env.transform, new Vector3(0f, 5.0f, HallNear + 0.1f), 0.7f,
+                                 TextAnchor.MiddleCenter, new Color(1f, 0.8f, 0.55f), "RIG 2   ·   8 × GTX 1070");
+            near.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
+            RoomSlab(env, "Sign Near Line", new Vector3(0f, 4.4f, HallNear + 0.1f), new Vector3(10f, 0.04f, 0.02f), "EdgeAmber");
+
+            // Dust hanging in the air round the stage, catching the light.
+            ParticleSystem dust = Particles("Dust", env.transform, "GlowBlob", 350, 16f,
+                                            0.03f, new MinMaxCurve(0.008f, 0.02f), new Color(0.6f, 0.85f, 1f, 0.45f));
+            dust.transform.localPosition = new Vector3(0f, 2.6f, 4f);
+            var dustMain = dust.main;
+            dustMain.prewarm = true;
+            var dustEmission = dust.emission;
+            dustEmission.rateOverTime = 22f;
+            var dustShape = dust.shape;
+            dustShape.enabled = true;
+            dustShape.shapeType = ParticleSystemShapeType.Box;
+            dustShape.scale = new Vector3(16f, 5f, 18f);
+
+            foreach (Transform t in env.GetComponentsInChildren<Transform>())
+                if (t.GetComponent<ParticleSystem>() == null && t.GetComponent<LineRenderer>() == null) t.gameObject.isStatic = true;
+        }
+
+        /// <summary>A row of racks along z at x, fronts facing faceX (+1 or -1).</summary>
+        static void RackRow(GameObject env, System.Random rng, float x, float faceX, float zStart, float zEnd, bool bothFaces)
+        {
+            int n = 0;
+            for (float z = zStart; z <= zEnd; z += RackPitch, n++)
+            {
+                if (n % 8 == 7) continue;                                   // a cross aisle
+                // The rack's face is its local -z. Turning -90 about Y points that at +x.
+                Quaternion face = Quaternion.Euler(0f, faceX > 0f ? -90f : 90f, 0f);
+                Rack(env, rng, new Vector3(x, 0f, z), face, bothFaces);
+            }
+        }
+
+        /// <summary>
+        /// One rack: a dark cabinet with a lit face front and back. The face is one quad;
+        /// the Rack Lights shader draws the servers and their blinking lights on it.
+        /// </summary>
+        static void Rack(GameObject env, System.Random rng, Vector3 position, Quaternion facing, bool bothFaces)
+        {
+            float height = 2.0f + 0.1f * rng.Next(0, 4);
+            const float width = 0.6f, depth = 1.0f;
+            GameObject rack = new GameObject("Rack");
+            rack.transform.SetParent(env.transform, false);
+            rack.transform.localPosition = position;
+            rack.transform.localRotation = facing;
+
+            Child(rack, "Cabinet", PrimitiveType.Cube, new Vector3(0f, height / 2f, 0f), new Vector3(width, height, depth), "RackBody");
+            // Facing -z locally, the way Unity's quad faces, then turned with the rack.
+            Child(rack, "Face", PrimitiveType.Quad, new Vector3(0f, height / 2f, -depth / 2f - 0.003f),
+                  new Vector3(width - 0.04f, height - 0.08f, 1f), "RackLights");
+            if (bothFaces)
+            {
+                GameObject back = Child(rack, "Back", PrimitiveType.Quad, new Vector3(0f, height / 2f, depth / 2f + 0.003f),
+                                        new Vector3(width - 0.04f, height - 0.08f, 1f), "RackLights");
+                back.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
+            }
         }
 
         static void RoomSlab(GameObject parent, string name, Vector3 position, Vector3 size, string material)
@@ -1139,6 +1474,21 @@ namespace OCS.VR.EditorTools
             Mat("BlackPlastic", new Color(0.05f, 0.05f, 0.05f), 0f, 0.3f);
             Mat("PSUBody", new Color(0.10f, 0.10f, 0.11f), 0.6f, 0.6f);
             // Faintly self lit, so the panels read against a dark room whatever the lighting.
+            Mat("NodeAccentLit", Cyan, 0f, 0.5f, emissive: true, emission: new Color(0.4f, 1.3f, 1.9f));
+            Mat("EdgeAmber", Amber, 0f, 0.5f, emissive: true, emission: new Color(1.6f, 0.75f, 0.2f));
+            Mat("Dais", new Color(0.03f, 0.034f, 0.042f), 0.2f, 0.85f);
+            Mat("Pillar", new Color(0.05f, 0.055f, 0.065f), 0.3f, 0.4f);
+            Mat("RackBody", new Color(0.04f, 0.043f, 0.05f), 0.5f, 0.45f);
+            Mat("StripLight", new Color(0.8f, 0.9f, 1.0f), 0f, 0.5f, emissive: true, emission: new Color(0.7f, 1.0f, 1.4f));
+
+            // The custom shaders in Assets/Shaders.
+            GlowMat("GlowBlob", 0f, 2f, Color.white);
+            GlowMat("GlowBlobCyan", 0f, 2.2f, new Color(Cyan.r, Cyan.g, Cyan.b, 0.8f));
+            GlowMat("GlowBeam", 1f, 1.4f, Color.white);
+            GlowMat("GlowBeamSoft", 1f, 2.5f, new Color(Cyan.r, Cyan.g, Cyan.b, 0.3f));
+            GlowMat("GlowRing", 2f, 1.5f, Color.white);
+            ShaderMat("GridFloor", "OCS/Grid Floor");
+            ShaderMat("RackLights", "OCS/Rack Lights");
             Mat("NodePanel", new Color(0.07f, 0.085f, 0.10f), 0.3f, 0.6f, emissive: true, emission: new Color(0.05f, 0.065f, 0.085f));
             Mat("NodeAccent", Cyan, 0f, 0.5f, emissive: true, emission: new Color(0.04f, 0.12f, 0.18f));
             Mat("LED", new Color(0.9f, 0.9f, 0.9f), 0f, 0.7f, emissive: true);
@@ -1189,6 +1539,43 @@ namespace OCS.VR.EditorTools
             if (created) AssetDatabase.CreateAsset(mat, path);
             else EditorUtility.SetDirty(mat);
             Materials[name] = mat;
+        }
+
+        /// <summary>A material on one of the project's own shaders, made once, kept after.</summary>
+        static Material ShaderMat(string name, string shader)
+        {
+            Shader found = Shader.Find(shader);
+            if (found == null)
+            {
+                Debug.LogError("[SceneBuilder] Shader '" + shader + "' not found. It should be in Assets/Shaders; " +
+                               "check the Console for a shader compile error.");
+                return null;
+            }
+            string path = MaterialsDir + "/" + name + ".mat";
+            Material mat = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (mat == null)
+            {
+                mat = new Material(found);
+                AssetDatabase.CreateAsset(mat, path);
+            }
+            else if (mat.shader != found)
+            {
+                mat.shader = found;
+            }
+            mat.enableInstancing = true;
+            EditorUtility.SetDirty(mat);
+            Materials[name] = mat;
+            return mat;
+        }
+
+        /// <summary>An OCS/Glow material: shape 0 a soft blob, 1 a soft beam, 2 a ring.</summary>
+        static void GlowMat(string name, float shape, float falloff, Color color)
+        {
+            Material mat = ShaderMat(name, "OCS/Glow");
+            if (mat == null) return;
+            mat.SetFloat("_Shape", shape);
+            mat.SetFloat("_Falloff", falloff);
+            mat.SetColor("_Color", color);
         }
 
         static void Paint(GameObject go, string material)

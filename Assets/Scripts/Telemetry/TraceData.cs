@@ -97,6 +97,8 @@ namespace OCS.VR.Telemetry
     {
         public string trace_id;
         public string prompt_preview;
+        /// <summary>Optional. The start of the answer, shown typing out in VR.</summary>
+        public string response_preview;
         public string recorded_at;
         public List<Hop> hops = new List<Hop>();
 

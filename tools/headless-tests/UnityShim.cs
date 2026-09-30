@@ -18,6 +18,8 @@ namespace UnityEngine
         public static Vector3 down => new Vector3(0, -1, 0);
         public float sqrMagnitude => x * x + y * y + z * z;
         public static bool operator ==(Vector3 a, Vector3 b) => a.x == b.x && a.y == b.y && a.z == b.z;
+        public float magnitude => (float)Math.Sqrt(x * x + y * y + z * z);
+        public static float Distance(Vector3 a, Vector3 b) { float dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z; return (float)Math.Sqrt(dx * dx + dy * dy + dz * dz); }
         public static bool operator !=(Vector3 a, Vector3 b) => !(a == b);
         public override bool Equals(object o) => o is Vector3 v && v == this;
         public override int GetHashCode() => x.GetHashCode() ^ y.GetHashCode() ^ z.GetHashCode();
@@ -98,6 +100,15 @@ namespace UnityEngine
     {
         public static int PropertyToID(string n) => n.GetHashCode();
         public static Shader Find(string n) => new Shader();
+        public static readonly Dictionary<int, float> GlobalFloats = new Dictionary<int, float>();
+        public static void SetGlobalFloat(int id, float v) { GlobalFloats[id] = v; }
+        public static void SetGlobalVector(int id, Vector4 v) { }
+    }
+
+    public struct Vector4
+    {
+        public float x, y, z, w;
+        public Vector4(float x, float y, float z, float w) { this.x = x; this.y = y; this.z = z; this.w = w; }
     }
 
     public class Material : Object
@@ -105,6 +116,7 @@ namespace UnityEngine
         public MaterialGlobalIlluminationFlags globalIlluminationFlags;
         public Shader shader;
         public Material(Shader s) { shader = s; }
+        public bool enableInstancing;
         public void SetColor(string n, Color c) { }
         public void SetFloat(string n, float f) { }
         public void EnableKeyword(string k) { }
@@ -129,6 +141,8 @@ namespace UnityEngine
     {
         public bool enabled = true;
         public Material sharedMaterial;
+        public UnityEngine.Rendering.ShadowCastingMode shadowCastingMode;
+        public bool receiveShadows;
         public MaterialPropertyBlock LastBlock;
         public void GetPropertyBlock(MaterialPropertyBlock b) { }
         public void SetPropertyBlock(MaterialPropertyBlock b) { LastBlock = b; }
@@ -147,8 +161,6 @@ namespace UnityEngine
         public AnimationCurve widthCurve;
         public float widthMultiplier;
         public Color startColor, endColor;
-        public UnityEngine.Rendering.ShadowCastingMode shadowCastingMode;
-        public bool receiveShadows;
         public Vector3[] Positions = new Vector3[2];
         public void SetPosition(int i, Vector3 p) { Positions[i] = p; }
     }
@@ -157,8 +169,6 @@ namespace UnityEngine
     {
         public float time, widthMultiplier, minVertexDistance;
         public Color startColor, endColor;
-        public UnityEngine.Rendering.ShadowCastingMode shadowCastingMode;
-        public bool receiveShadows;
     }
     public class Light : Component { public LightShadows shadows; public float intensity; public Color color; }
 
@@ -169,7 +179,12 @@ namespace UnityEngine
         public static Material skybox;
         public static UnityEngine.Rendering.AmbientMode ambientMode;
         public static Color ambientLight;
+        public static bool fog;
+        public static FogMode fogMode;
+        public static Color fogColor;
+        public static float fogStartDistance, fogEndDistance;
     }
+    public enum FogMode { Linear = 1, Exponential, ExponentialSquared }
 
     [AttributeUsage(AttributeTargets.Class)] public class ExecuteAlwaysAttribute : Attribute { }
 
@@ -190,6 +205,8 @@ namespace UnityEngine
         public bool activeSelf => _active;
         public T AddComponent<T>() where T : new() => new T();
         public T GetComponent<T>() where T : class => null;
+        public T[] GetComponentsInChildren<T>() where T : class => new T[0];
+        public bool isStatic;
         public static GameObject CreatePrimitive(PrimitiveType t) => new GameObject();
         public static GameObject Find(string n) => null;
     }
@@ -466,4 +483,145 @@ namespace UnityEngine.Rendering
 {
     public enum AmbientMode { Skybox = 0, Trilight = 1, Flat = 3, Custom = 4 }
     public enum ShadowCastingMode { Off, On, TwoSided, ShadowsOnly }
+}
+
+namespace UnityEngine
+{
+    // Just enough of ParticleSystem for the scripts and the scene builder to compile and
+    // for the headless run to count what was emitted. Modules are structs that write
+    // through to the system, as Unity's are.
+    public enum ParticleSystemSimulationSpace { Local, World, Custom }
+    public enum ParticleSystemShapeType { Sphere = 0, Hemisphere = 2, Cone = 4, Box = 5, Circle = 10 }
+    public enum ParticleSystemRenderMode { Billboard, Stretch, HorizontalBillboard, VerticalBillboard, Mesh, None }
+    public enum ParticleSystemScalingMode { Hierarchical, Local, Shape }
+
+    public struct MinMaxCurve
+    {
+        public float constant, constantMin, constantMax;
+        public AnimationCurve curve;
+        public MinMaxCurve(float c) { constant = constantMin = constantMax = c; curve = null; }
+        public MinMaxCurve(float min, float max) { constant = max; constantMin = min; constantMax = max; curve = null; }
+        public MinMaxCurve(float multiplier, AnimationCurve c) { constant = constantMin = constantMax = multiplier; curve = c; }
+        public static implicit operator MinMaxCurve(float c) => new MinMaxCurve(c);
+    }
+
+    public struct GradientColorKey { public Color color; public float time; public GradientColorKey(Color c, float t) { color = c; time = t; } }
+    public struct GradientAlphaKey { public float alpha, time; public GradientAlphaKey(float a, float t) { alpha = a; time = t; } }
+    public class Gradient { public void SetKeys(GradientColorKey[] c, GradientAlphaKey[] a) { } }
+
+    public struct MinMaxGradient
+    {
+        public Color color;
+        public Gradient gradient;
+        public MinMaxGradient(Color c) { color = c; gradient = null; }
+        public MinMaxGradient(Gradient g) { color = default(Color); gradient = g; }
+        public static implicit operator MinMaxGradient(Color c) => new MinMaxGradient(c);
+        public static implicit operator MinMaxGradient(Gradient g) => new MinMaxGradient(g);
+    }
+
+    public class ParticleSystemRenderer : Renderer
+    {
+        public ParticleSystemRenderMode renderMode;
+        public float minParticleSize, maxParticleSize = 0.5f;
+    }
+
+    public class ParticleSystem : Component
+    {
+        public float Rate;
+        public int Emitted;
+        public bool isPlaying { get; private set; }
+        public void Play() { isPlaying = true; }
+        public void Stop() { isPlaying = false; }
+        public void Clear() { }
+        public void Emit(EmitParams p, int count) { Emitted += count; }
+        public void Emit(int count) { Emitted += count; }
+
+        public struct EmitParams
+        {
+            public Vector3 position;
+            public bool applyShapeToPosition;
+            public Color32 startColor;
+        }
+
+        public MainModule main => new MainModule();
+        public EmissionModule emission => new EmissionModule(this);
+        public ShapeModule shape => new ShapeModule();
+        public ColorOverLifetimeModule colorOverLifetime => new ColorOverLifetimeModule();
+        public SizeOverLifetimeModule sizeOverLifetime => new SizeOverLifetimeModule();
+        public VelocityOverLifetimeModule velocityOverLifetime => new VelocityOverLifetimeModule();
+
+        public struct MainModule
+        {
+            public MinMaxCurve startLifetime { get; set; }
+            public MinMaxCurve startSpeed { get; set; }
+            public MinMaxCurve startSize { get; set; }
+            public MinMaxGradient startColor { get; set; }
+            public MinMaxCurve gravityModifier { get; set; }
+            public int maxParticles { get; set; }
+            public bool loop { get; set; }
+            public bool playOnAwake { get; set; }
+            public bool prewarm { get; set; }
+            public float duration { get; set; }
+            public ParticleSystemSimulationSpace simulationSpace { get; set; }
+            public ParticleSystemScalingMode scalingMode { get; set; }
+        }
+
+        public struct EmissionModule
+        {
+            readonly ParticleSystem _ps;
+            public EmissionModule(ParticleSystem ps) : this() { _ps = ps; }
+            public bool enabled { get; set; }
+            public MinMaxCurve rateOverTime { get => new MinMaxCurve(_ps.Rate); set { _ps.Rate = value.constant; } }
+        }
+
+        public struct ShapeModule
+        {
+            public bool enabled { get; set; }
+            public ParticleSystemShapeType shapeType { get; set; }
+            public float angle { get; set; }
+            public float radius { get; set; }
+            public Vector3 scale { get; set; }
+            public Vector3 position { get; set; }
+        }
+
+        public struct ColorOverLifetimeModule { public bool enabled { get; set; } public MinMaxGradient color { get; set; } }
+        public struct SizeOverLifetimeModule { public bool enabled { get; set; } public MinMaxCurve size { get; set; } }
+        public struct VelocityOverLifetimeModule
+        {
+            public bool enabled { get; set; }
+            public MinMaxCurve x { get; set; }
+            public MinMaxCurve y { get; set; }
+            public MinMaxCurve z { get; set; }
+            public ParticleSystemSimulationSpace space { get; set; }
+        }
+    }
+
+    public struct Color32
+    {
+        public byte r, g, b, a;
+        public Color32(byte r, byte g, byte b, byte a) { this.r = r; this.g = g; this.b = b; this.a = a; }
+        public static implicit operator Color32(Color c) =>
+            new Color32((byte)(Mathf.Clamp01(c.r) * 255), (byte)(Mathf.Clamp01(c.g) * 255), (byte)(Mathf.Clamp01(c.b) * 255), (byte)(Mathf.Clamp01(c.a) * 255));
+    }
+}
+
+namespace UnityEngine
+{
+    public struct Vector2
+    {
+        public float x, y;
+        public Vector2(float x, float y) { this.x = x; this.y = y; }
+    }
+
+    public class Mesh : Object
+    {
+        public Vector3[] vertices;
+        public Vector2[] uv;
+        public Color[] colors;
+        public int[] triangles;
+        public void RecalculateBounds() { }
+    }
+
+    public class MeshFilter : Component { public Mesh sharedMesh; }
+    public class MeshRenderer : Renderer { }
 }

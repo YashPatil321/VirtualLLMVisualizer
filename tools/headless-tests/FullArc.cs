@@ -128,7 +128,20 @@ public static class FullArc
         } };
         bool viewShownDuringAssembly = false, timelineShownBeforeRequest = false, trayShownAtRequest = false;
         float viewScaleAtRequest = -1f, timelineScaleLate = 0f;
-        var extras = new object[] { beams, hopCaptions, readout, timeline, stage };
+        // The hall reacting, bursts, the token stream and the answer panel, as the builder wires them.
+        var pulseDriver = new WorldPulseDriver { sequencer = seq, player = player, centre = new Transform() };
+        var ringRs = new Renderer[4];
+        for (int i = 0; i < ringRs.Length; i++) ringRs[i] = new Renderer();
+        var bursts = new ImpactBursts { assembly = assembly, sequencer = seq, player = player, rig = rigDisplay,
+                                        view = sysView, graph = graph, rings = ringRs, sparks = new ParticleSystem() };
+        var tokensPs = new ParticleSystem();
+        var tokenStream = new TokenStream { player = player, rig = rigDisplay, tokens = tokensPs, target = new Transform() };
+        var promptText = new TextMesh(); var responseText = new TextMesh();
+        var answerPanel = new AnswerPanel { player = player, prompt = promptText, response = responseText };
+        int wakeId = Shader.PropertyToID("_OCSWake"), waveId = Shader.PropertyToID("_OCSWaveStrength");
+        float wakeAtRequest = -1f, peakWave = 0f, peakRipple = 0f, peakTokenRate = 0f, tokenRateAfter = -1f;
+        string answerMid = null;
+        var extras = new object[] { beams, hopCaptions, readout, timeline, stage, pulseDriver, bursts, tokenStream, answerPanel };
         int emissionId = Shader.PropertyToID("_EmissionColor");
         System.Func<int, float> glowOf = i =>
         {
@@ -180,6 +193,7 @@ public static class FullArc
             Call(rigDisplay, "Update"); Call(sysView, "Update"); Call(narrator, "Update");
             foreach (var v in visuals) Call(v, "Update");
             Call(beams, "Update"); Call(timeline, "Update"); Call(readout, "LateUpdate"); Call(stage, "Update");
+            Call(pulseDriver, "Update"); Call(bursts, "Update"); Call(answerPanel, "Update");
             MonoBehaviour.PumpCoroutines();
 
             for (int b = 0; b < beamLines.Length; b++) if (beamLines[b].widthMultiplier > beamPeak[b]) beamPeak[b] = beamLines[b].widthMultiplier;
@@ -193,6 +207,14 @@ public static class FullArc
             if (midReadout == null && rt.Contains("Generating") && !rt.Contains(" 0 tokens") && !rt.Contains("186 tokens")) midReadout = rt;
 
             Act now = seq.CurrentAct;
+            float g;
+            if (now == Act.PowerOn && Shader.GlobalFloats.TryGetValue(waveId, out g) && g > peakWave) peakWave = g;
+            if (now == Act.Request && wakeAtRequest < 0f) wakeAtRequest = Shader.GlobalFloats.TryGetValue(wakeId, out g) ? g : 0f;
+            if (pulseDriver.Ripple > peakRipple) peakRipple = pulseDriver.Ripple;
+            if (tokenStream.Rate > peakTokenRate) peakTokenRate = tokenStream.Rate;
+            if (now == Act.Answer && tokenRateAfter < 0f) tokenRateAfter = tokenStream.Rate;
+            string shown = answerPanel.Shown ?? "";
+            if (answerMid == null && shown.Length > 40) answerMid = shown;
             if ((now == Act.EmptyBench || now == Act.Assembly) && viewT.gameObject.activeSelf) viewShownDuringAssembly = true;
             if (now < Act.Request && timelineT.gameObject.activeSelf) timelineShownBeforeRequest = true;
             if (now == Act.Request && viewScaleAtRequest < 0f)
@@ -248,6 +270,19 @@ public static class FullArc
         Console.WriteLine($"  scheduler caption     : \"{captions[graph.IndexOf(graph.Find("gpu-scheduler"))].text.Replace("\n", " / ")}\"");
         Console.WriteLine($"  card readout mid-run  : \"{(midReadout ?? "(none)").Replace("\n", " / ")}\"");
         if (lit != beamLines.Length || beamLines.Length != 4) { Console.WriteLine("  >>> BUG: not every beam on the route lit, or the route isn't 4 beams."); problems++; }
+        string finalAnswer = answerPanel.Shown ?? "";
+        Console.WriteLine($"  hall                  : wave peaked at {peakWave:F2}, racks awake to {wakeAtRequest:F0} m by the request, " +
+                          $"ripples peaked at {peakRipple:F2}");
+        Console.WriteLine($"  bursts                : {bursts.Played} (23 parts, power on, the card, the answer)");
+        Console.WriteLine($"  tokens                : {peakTokenRate:F1} particles/s while generating, {tokenRateAfter:F1} after");
+        Console.WriteLine($"  prompt                : \"{(promptText.text ?? "").Replace("\n", " / ")}\"");
+        Console.WriteLine($"  answer mid-stream     : \"{(answerMid ?? "(none)").Replace("\n", " / ")}\"");
+        Console.WriteLine($"  answer at the end     : \"{finalAnswer.Replace("\n", " / ")}\"");
+        if (peakWave < 0.5f || wakeAtRequest < 30f) { Console.WriteLine("  >>> BUG: the power on wave didn't run or didn't wake the hall."); problems++; }
+        if (peakRipple < 0.9f) { Console.WriteLine("  >>> BUG: the floor never rippled while generating."); problems++; }
+        if (bursts.Played < 26) { Console.WriteLine("  >>> BUG: missing bursts."); problems++; }
+        if (peakTokenRate <= 0f || tokenRateAfter != 0f) { Console.WriteLine("  >>> BUG: tokens didn't stream, or kept streaming after."); problems++; }
+        if (string.IsNullOrEmpty(promptText.text) || answerMid == null || !finalAnswer.EndsWith("tenth of a second.")) { Console.WriteLine("  >>> BUG: the answer panel didn't show the prompt or type out the whole answer."); problems++; }
         Console.WriteLine($"  stage                 : system view at scale {viewScaleAtRequest:F2} when the request starts, " +
                           $"timeline at {timelineScaleLate:F2} by the answer, tray and stand {(trayShownAtRequest ? "still there" : "gone")}");
         if (viewShownDuringAssembly || timelineShownBeforeRequest) { Console.WriteLine("  >>> BUG: the system view or timeline showed before its act."); problems++; }

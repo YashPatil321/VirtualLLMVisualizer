@@ -48,6 +48,18 @@ namespace OCS.VR.Experience
         [Tooltip("Eases the travel so parts do not move at a constant crawl.")]
         public bool smoothTravel = true;
 
+        [Header("Flight")]
+        [Tooltip("Fly on an arc, lifting out of the tray and dropping into the socket, " +
+                 "rather than sliding in a straight line.")]
+        public bool arc = true;
+
+        [Tooltip("Degrees a part turns on the way, unwinding to square as it lands. " +
+                 "The frame is too big to spin and never does.")]
+        public float spinDegrees = 180f;
+
+        [Tooltip("How far past the socket a part runs before settling. 0 for none.")]
+        public float overshoot = 0.8f;
+
         public event Action Started;
         public event Action<AssemblyStep, int> StepStarted;
         public event Action<AssemblyStep, int> StepEnded;
@@ -55,6 +67,7 @@ namespace OCS.VR.Experience
 
         AssemblyTimeline _timeline;
         bool _playing;
+        Quaternion[] _baseRotation;
 
         public bool IsPlaying => _playing;
         public bool IsFinished => _timeline != null && _timeline.IsFinished;
@@ -128,11 +141,21 @@ namespace OCS.VR.Experience
         {
             if (bindings == null) return;
 
+            // The rotation each part was built with is the one it lands in. Recorded once,
+            // before any flight has turned it.
+            if (_baseRotation == null || _baseRotation.Length != bindings.Length)
+            {
+                _baseRotation = new Quaternion[bindings.Length];
+                for (int i = 0; i < bindings.Length; i++)
+                    if (bindings[i] != null && bindings[i].part != null) _baseRotation[i] = bindings[i].part.rotation;
+            }
+
             for (int i = 0; i < bindings.Length; i++)
             {
                 AssemblyPartBinding b = bindings[i];
                 if (b == null || b.part == null) continue;
                 if (b.tray != null) b.part.position = b.tray.position;
+                b.part.rotation = _baseRotation[i];
             }
         }
 
@@ -145,14 +168,28 @@ namespace OCS.VR.Experience
             AssemblyStep step = _timeline.CurrentStep;
             if (step == null) return;
 
-            AssemblyPartBinding binding = FindBinding(step.stepId);
-            if (binding == null || binding.part == null) return;
+            int index = FindBindingIndex(step.stepId);
+            if (index < 0) return;
+            AssemblyPartBinding binding = bindings[index];
+            if (binding.part == null) return;
 
-            float t = _timeline.TravelProgress01;
-            if (smoothTravel) t = t * t * (3f - 2f * t);   // smoothstep, no allocation
-
+            float raw = _timeline.TravelProgress01;
             Vector3 from = binding.tray != null ? binding.tray.position : binding.part.position;
-            binding.part.position = Vector3.Lerp(from, SocketPositionFor(binding), t);
+            Vector3 to = SocketPositionFor(binding);
+
+            if (!arc)
+            {
+                float t = smoothTravel ? raw * raw * (3f - 2f * raw) : raw;
+                binding.part.position = Vector3.Lerp(from, to, t);
+                return;
+            }
+
+            float eased = smoothTravel ? FlightPath.EaseOutBack(raw, overshoot) : raw;
+            binding.part.position = FlightPath.Position(from, to, eased, FlightPath.ArcFor(Vector3.Distance(from, to)));
+
+            float spin = step.kind == PartKind.Chassis ? 0f : FlightPath.SpinAt(raw, spinDegrees);
+            if (_baseRotation != null && index < _baseRotation.Length)
+                binding.part.rotation = Quaternion.AngleAxis(spin, Vector3.up) * _baseRotation[index];
         }
 
         Vector3 SocketPositionFor(AssemblyPartBinding binding)
@@ -169,15 +206,15 @@ namespace OCS.VR.Experience
             return binding.part != null ? binding.part.position : Vector3.zero;
         }
 
-        AssemblyPartBinding FindBinding(string stepId)
+        int FindBindingIndex(string stepId)
         {
-            if (bindings == null || string.IsNullOrEmpty(stepId)) return null;
+            if (bindings == null || string.IsNullOrEmpty(stepId)) return -1;
 
             for (int i = 0; i < bindings.Length; i++)
             {
-                if (bindings[i] != null && bindings[i].stepId == stepId) return bindings[i];
+                if (bindings[i] != null && bindings[i].stepId == stepId) return i;
             }
-            return null;
+            return -1;
         }
 
         void OnStepStarted(AssemblyStep s, int i) => StepStarted?.Invoke(s, i);

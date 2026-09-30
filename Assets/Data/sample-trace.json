@@ -1,6 +1,7 @@
 {
   "trace_id": "sample-0001",
-  "prompt_preview": "Explain how a GPU scheduler decides...",
+  "prompt_preview": "Explain how a GPU scheduler decides which rig runs a request.",
+  "response_preview": "The scheduler keeps a live view of every rig: how busy each card is, how much VRAM is free, and which models are already loaded. When a request arrives it picks the rig with the most headroom for that model, so nothing waits behind a busy card. Here that was Rig 2, and card three had the model warm, so it started generating in under a tenth of a second.",
   "recorded_at": "2026-09-15T10:22:41Z",
   "_note": "Hand written placeholder so V5 can be built before the broker exists. Replace with a real recorded trace once the broker emits this schema. Timings are plausible, not measured.",
   "hops": [

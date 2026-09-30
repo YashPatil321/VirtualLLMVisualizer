@@ -16,20 +16,20 @@ MonoBehaviour:
   - nodeId: web-client
     displayName: "Client"
     hopType: 1
-    position: {x: -1.25, y: -0.08, z: 0.1}
+    position: {x: -3.0, y: -0.25, z: 0.3}
   - nodeId: ocs-broker
     displayName: "Broker"
     hopType: 2
-    position: {x: -0.75, y: 0.28, z: 0.25}
+    position: {x: -1.55, y: 0.55, z: 0.6}
   - nodeId: gpu-scheduler
     displayName: "Scheduler"
     hopType: 3
-    position: {x: 0.65, y: 0.28, z: 0.25}
+    position: {x: 1.55, y: 0.55, z: 0.6}
   - nodeId: rig-2
     displayName: "Rig 2"
     hopType: 5
-    position: {x: -0.04, y: -0.18, z: -0.25}
+    position: {x: -0.04, y: -0.3, z: -0.6}
   - nodeId: rig-1
     displayName: "Rig 1"
     hopType: 0
-    position: {x: 1.15, y: -0.08, z: 0.1}
+    position: {x: 3.0, y: -0.25, z: 0.3}

@@ -22,6 +22,14 @@ namespace OCS.VR.Experience
         [Tooltip("What the camera shows where there's nothing. Replaces the default sky.")]
         public Color background = new Color(0.02f, 0.022f, 0.028f);
 
+        [Header("Fog")]
+        [Tooltip("Linear fog, so the far end of the hall fades into the dark. Cheap on Quest: " +
+                 "it's worked out per pixel in each shader, not a post effect.")]
+        public bool fog = false;
+        public Color fogColor = new Color(0.016f, 0.022f, 0.034f);
+        public float fogStart = 6f;
+        public float fogEnd = 30f;
+
         void OnEnable()
         {
             Apply();
@@ -37,6 +45,12 @@ namespace OCS.VR.Experience
             RenderSettings.skybox = null;
             RenderSettings.ambientMode = AmbientMode.Flat;
             RenderSettings.ambientLight = ambient;
+
+            RenderSettings.fog = fog;
+            RenderSettings.fogMode = FogMode.Linear;
+            RenderSettings.fogColor = fogColor;
+            RenderSettings.fogStartDistance = fogStart;
+            RenderSettings.fogEndDistance = fogEnd;
 
             Camera cam = Camera.main;
             if (cam != null)
