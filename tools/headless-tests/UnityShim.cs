@@ -498,29 +498,9 @@ namespace UnityEngine
     public enum ParticleSystemRenderMode { Billboard, Stretch, HorizontalBillboard, VerticalBillboard, Mesh, None }
     public enum ParticleSystemScalingMode { Hierarchical, Local, Shape }
 
-    public struct MinMaxCurve
-    {
-        public float constant, constantMin, constantMax;
-        public AnimationCurve curve;
-        public MinMaxCurve(float c) { constant = constantMin = constantMax = c; curve = null; }
-        public MinMaxCurve(float min, float max) { constant = max; constantMin = min; constantMax = max; curve = null; }
-        public MinMaxCurve(float multiplier, AnimationCurve c) { constant = constantMin = constantMax = multiplier; curve = c; }
-        public static implicit operator MinMaxCurve(float c) => new MinMaxCurve(c);
-    }
-
     public struct GradientColorKey { public Color color; public float time; public GradientColorKey(Color c, float t) { color = c; time = t; } }
     public struct GradientAlphaKey { public float alpha, time; public GradientAlphaKey(float a, float t) { alpha = a; time = t; } }
     public class Gradient { public void SetKeys(GradientColorKey[] c, GradientAlphaKey[] a) { } }
-
-    public struct MinMaxGradient
-    {
-        public Color color;
-        public Gradient gradient;
-        public MinMaxGradient(Color c) { color = c; gradient = null; }
-        public MinMaxGradient(Gradient g) { color = default(Color); gradient = g; }
-        public static implicit operator MinMaxGradient(Color c) => new MinMaxGradient(c);
-        public static implicit operator MinMaxGradient(Gradient g) => new MinMaxGradient(g);
-    }
 
     public class ParticleSystemRenderer : Renderer
     {
@@ -528,8 +508,29 @@ namespace UnityEngine
         public float minParticleSize, maxParticleSize = 0.5f;
     }
 
+    // Nested, as in Unity: UnityEngine.ParticleSystem.MinMaxCurve, not UnityEngine.MinMaxCurve.
     public class ParticleSystem : Component
     {
+        public struct MinMaxCurve
+        {
+            public float constant, constantMin, constantMax;
+            public AnimationCurve curve;
+            public MinMaxCurve(float c) { constant = constantMin = constantMax = c; curve = null; }
+            public MinMaxCurve(float min, float max) { constant = max; constantMin = min; constantMax = max; curve = null; }
+            public MinMaxCurve(float multiplier, AnimationCurve c) { constant = constantMin = constantMax = multiplier; curve = c; }
+            public static implicit operator MinMaxCurve(float c) => new MinMaxCurve(c);
+        }
+
+        public struct MinMaxGradient
+        {
+            public Color color;
+            public Gradient gradient;
+            public MinMaxGradient(Color c) { color = c; gradient = null; }
+            public MinMaxGradient(Gradient g) { color = default(Color); gradient = g; }
+            public static implicit operator MinMaxGradient(Color c) => new MinMaxGradient(c);
+            public static implicit operator MinMaxGradient(Gradient g) => new MinMaxGradient(g);
+        }
+
         public float Rate;
         public int Emitted;
         public bool isPlaying { get; private set; }

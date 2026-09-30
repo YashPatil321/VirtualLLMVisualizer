@@ -575,7 +575,7 @@ namespace OCS.VR.EditorTools
 
         /// <summary>A particle system set up the way every one here wants it.</summary>
         static ParticleSystem Particles(string name, Transform parent, string material, int max,
-                                        float lifetime, MinMaxCurve speed, MinMaxCurve size, Color colour)
+                                        float lifetime, ParticleSystem.MinMaxCurve speed, ParticleSystem.MinMaxCurve size, Color colour)
         {
             GameObject go = new GameObject(name);
             go.transform.SetParent(parent, false);
@@ -682,6 +682,9 @@ namespace OCS.VR.EditorTools
             GameObject halo = GlowQuad("Card Halo", null, Vector3.zero, Vector3.one, "GlowBlob");
             halo.AddComponent<FaceCamera>().tilt = true;
             beams.cardHalo = halo.GetComponent<Renderer>();
+            // Off until SystemBeams puts it on a working card. SystemBeams sleeps with the
+            // system view until power on, so the halo must not start out lit.
+            beams.cardHalo.enabled = false;
             beams.haloSize = 0.7f;
         }
 
@@ -738,7 +741,7 @@ namespace OCS.VR.EditorTools
         static void BuildTokenStream(TracePlayer player, RigCardDisplay rig, Transform target)
         {
             ParticleSystem tokens = Particles("Token Stream", null, "GlowBlob", 400, 0.9f,
-                                              1.5f, new MinMaxCurve(0.025f, 0.045f), new Color(1f, 0.62f, 0.2f, 1f));
+                                              1.5f, new ParticleSystem.MinMaxCurve(0.025f, 0.045f), new Color(1f, 0.62f, 0.2f, 1f));
             var shape = tokens.shape;
             shape.enabled = true;
             shape.shapeType = ParticleSystemShapeType.Cone;
@@ -746,7 +749,7 @@ namespace OCS.VR.EditorTools
             shape.radius = 0.02f;
             var size = tokens.sizeOverLifetime;
             size.enabled = true;
-            size.size = new MinMaxCurve(1f, new AnimationCurve(new Keyframe(0f, 0.6f), new Keyframe(0.3f, 1f), new Keyframe(1f, 0.3f)));
+            size.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0f, 0.6f), new Keyframe(0.3f, 1f), new Keyframe(1f, 0.3f)));
 
             TokenStream stream = tokens.gameObject.AddComponent<TokenStream>();
             stream.player = player;
@@ -769,7 +772,7 @@ namespace OCS.VR.EditorTools
             }
 
             ParticleSystem sparks = Particles("Sparks", root.transform, "GlowBlob", 600, 0.6f,
-                                              new MinMaxCurve(0.5f, 1.8f), new MinMaxCurve(0.012f, 0.024f), Color.white);
+                                              new ParticleSystem.MinMaxCurve(0.5f, 1.8f), new ParticleSystem.MinMaxCurve(0.012f, 0.024f), Color.white);
             var main = sparks.main;
             main.gravityModifier = 0.35f;
             var shape = sparks.shape;
@@ -1026,7 +1029,7 @@ namespace OCS.VR.EditorTools
 
             // Dust hanging in the air round the stage, catching the light.
             ParticleSystem dust = Particles("Dust", env.transform, "GlowBlob", 350, 16f,
-                                            0.03f, new MinMaxCurve(0.008f, 0.02f), new Color(0.6f, 0.85f, 1f, 0.45f));
+                                            0.03f, new ParticleSystem.MinMaxCurve(0.008f, 0.02f), new Color(0.6f, 0.85f, 1f, 0.45f));
             dust.transform.localPosition = new Vector3(0f, 2.6f, 4f);
             var dustMain = dust.main;
             dustMain.prewarm = true;
