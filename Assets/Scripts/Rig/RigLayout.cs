@@ -14,11 +14,11 @@ namespace OCS.VR.Rig
         [Tooltip("Rig 2 has 8 GTX 1070s.")]
         public int cardCount = 8;
 
-        [Tooltip("Metres between card centres. Placeholder until the real rig is measured.")]
-        public float cardSpacing = 0.09f;
+        [Tooltip("Metres between card centres. Rig 2's cards sit 75 mm apart.")]
+        public float cardSpacing = 0.075f;
 
         [Tooltip("Position of card 0 relative to the rig root.")]
-        public Vector3 firstCardOffset = new Vector3(-0.32f, 0.12f, 0f);
+        public Vector3 firstCardOffset = new Vector3(-0.2625f, 0.2155f, -0.045f);
 
         [Tooltip("Direction the cards run in from card 0.")]
         public Vector3 cardAxis = Vector3.right;

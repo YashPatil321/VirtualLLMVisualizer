@@ -124,9 +124,12 @@ Editor
   it by hand survive rebuilds. Edits to anything else in the scene do not
 - `Editor/RigModelImportSettings.cs` — import settings for those models
 
-Models: `tools/blender/generate_rig_parts.py` builds them in Blender at real size. See
-`tools/blender/README.md`. Parts are centred on their origin. Card children named `Fan0` and
-`Fan1` spin, and every child whose name starts with `LED` glows.
+Models: `tools/blender/generate_rig_parts.py` builds them in Blender at real size, modelled
+on photos of Rig 2 (EVGA GTX 1070 SCs, a two level black frame, two Antec 1300 W supplies).
+See `tools/blender/README.md`. Parts are centred on their origin. Card children named `Fan0`
+and `Fan1` spin, and every child whose name starts with `LED` glows. An empty named `Front`
+marks the side the builder turns toward the viewer. Card spacing and height are shared
+between that script, `RigLayout.asset` and the builder; change them together.
 
 Data, in `Assets/Data/`
 - `RigLayout.asset`, `AssemblySequence.asset` (23 steps), `SystemGraph.asset`

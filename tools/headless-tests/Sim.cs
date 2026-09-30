@@ -23,8 +23,8 @@ public static class Sim
         // ---------- SIM 1: card lighting through the request ----------
         Console.WriteLine("=== SIM 1: which card is lit, frame by frame (72 fps) ===");
         var player = new TracePlayer { traceAsset = new TextAsset(json), playOnStart = true, timeScale = 0.5f };
-        var layout = new RigLayout { cardCount = 8, cardSpacing = 0.09f,
-                                     firstCardOffset = new Vector3(-0.32f, 0.12f, 0f), cardAxis = Vector3.right,
+        var layout = new RigLayout { cardCount = 8, cardSpacing = 0.075f,
+                                     firstCardOffset = new Vector3(-0.2625f, 0.2155f, -0.045f), cardAxis = Vector3.right,
                                      tempMinC = 35f, tempMaxC = 85f };
         var cards = new Transform[8];
         for (int i = 0; i < 8; i++) cards[i] = new Transform();

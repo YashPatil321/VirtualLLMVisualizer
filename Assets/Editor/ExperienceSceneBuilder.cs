@@ -63,7 +63,7 @@ namespace OCS.VR.EditorTools
 
         // The readout sits just right of the beam, halfway between the card and Rig 2's
         // panel, so the beam itself connects the numbers to the card they describe.
-        static readonly Vector3 ReadoutOffset = new Vector3(0.07f, 0.3f, 0f);
+        static readonly Vector3 ReadoutOffset = new Vector3(0.07f, 0.26f, 0f);
 
         // One palette. Cyan is the software and the network; amber is the GPU working.
         // Everything else is near black or grey, so the two colours carry the story.
@@ -84,9 +84,23 @@ namespace OCS.VR.EditorTools
 
         // Real sizes, metres, in Unity axes: x across, y up, z along. These match the
         // Blender models exactly, so placeholders and models are interchangeable.
+        // Modelled on Rig 2: EVGA GTX 1070 SC cards, a two level 800 mm frame, and two Antec
+        // HCP 1300 supplies lying flat at the ends of the lower level.
         static readonly Vector3 CardSize = new Vector3(0.040f, 0.111f, 0.267f);
-        static readonly Vector3 FrameSize = new Vector3(0.720f, 0.300f, 0.400f);
-        static readonly Vector3 PsuSize = new Vector3(0.150f, 0.086f, 0.160f);
+        static readonly Vector3 FrameSize = new Vector3(0.800f, 0.300f, 0.400f);
+        static readonly Vector3 PsuSize = new Vector3(0.200f, 0.086f, 0.150f);
+        static readonly Vector3 CoolerSize = new Vector3(0.090f, 0.045f, 0.090f);
+        static readonly Vector3 RamSize = new Vector3(0.007f, 0.031f, 0.133f);
+
+        // The PCIe cable harness: its size, and where its centre sits from the middle of
+        // the card row. Both printed by generate_rig_parts.py when it builds the harness.
+        static readonly Vector3 HarnessSize = new Vector3(0.559f, 0.126f, 0.185f);
+        static readonly Vector3 HarnessFromCardRow = new Vector3(0.006f, 0.0753f, 0.1834f);
+
+        // How high the frame's two levels are above the bench. The lower one carries the
+        // motherboard and supplies on its rails; the cards stand on risers on the upper one.
+        const float LowerLevel = 0.020f;
+        const float CardTier = 0.18f;
         static readonly Vector3 BoardSize = new Vector3(0.305f, 0.0016f, 0.244f);
         static readonly Vector3 RiserSize = new Vector3(0.040f, 0.0016f, 0.100f);
 
@@ -193,8 +207,12 @@ namespace OCS.VR.EditorTools
 
             // ---------- sockets ----------
             var bindings = new List<AssemblyPartBinding>(sequence.StepCount);
+            var seen = new Dictionary<PartKind, int>();
             foreach (AssemblyStep step in sequence.steps)
             {
+                int nth;
+                seen.TryGetValue(step.kind, out nth);
+                seen[step.kind] = nth + 1;
                 GameObject part = partObjects[step.stepId];
 
                 GameObject traySlot = new GameObject("Tray " + step.stepId);
@@ -208,7 +226,7 @@ namespace OCS.VR.EditorTools
                     // spacing stays one number in one asset. Everything else gets one here.
                     GameObject s = new GameObject("Socket " + step.stepId);
                     s.transform.SetParent(rigRoot.transform, false);
-                    s.transform.localPosition = SocketFor(step, layout);
+                    s.transform.localPosition = SocketFor(step, nth, layout);
                     socket = s.transform;
                 }
 
@@ -752,7 +770,9 @@ namespace OCS.VR.EditorTools
                 if (prefab != null)
                 {
                     fromModel = true;
-                    return (GameObject)PrefabUtility.InstantiatePrefab(prefab);
+                    var instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
+                    FaceFront(instance);
+                    return instance;
                 }
             }
 
@@ -764,12 +784,36 @@ namespace OCS.VR.EditorTools
                 case PartKind.Psu:         return Block("PSU", PsuSize, "PSUBody");
                 case PartKind.Motherboard: return Block("Motherboard", BoardSize, "PCB");
                 case PartKind.Riser:       return Block("Riser", RiserSize, "PCB");
-                case PartKind.Cpu:         return Block("CPU", new Vector3(0.05f, 0.006f, 0.05f), "Steel");
-                case PartKind.Ram:         return Block("RAM", new Vector3(0.006f, 0.03f, 0.133f), "Shroud");
-                case PartKind.Cable:       return Block("Cable", new Vector3(0.02f, 0.02f, 0.30f), "BlackPlastic");
+                case PartKind.Cpu:         return Block("CPU Cooler", CoolerSize, "Steel");
+                case PartKind.Ram:         return Block("RAM", RamSize, "Shroud");
+                case PartKind.Cable:       return Block("PCIe Cables", HarnessSize, "BlackPlastic");
                 case PartKind.Fan:         return Block("Fans", new Vector3(0.03f, 0.12f, 0.12f), "BlackPlastic");
                 default:                   return Block("Part", Vector3.one * 0.1f, "Shroud");
             }
+        }
+
+        /// <summary>
+        /// Models mark their front with an empty named Front: a card's bracket, the lettered
+        /// side of a supply. Turns the part round if that points away from the viewer, so
+        /// the parts come out the right way whichever way the FBX axis conversion went.
+        /// </summary>
+        static void FaceFront(GameObject part)
+        {
+            Transform front = FindDeep(part.transform, "Front");
+            if (front == null) return;
+            if (front.position.z - part.transform.position.z <= 0f) return;
+            part.transform.rotation = Quaternion.AngleAxis(180f, Vector3.up) * part.transform.rotation;
+        }
+
+        static Transform FindDeep(Transform t, string name)
+        {
+            if (t.name == name) return t;
+            for (int i = 0; i < t.childCount; i++)
+            {
+                Transform found = FindDeep(t.GetChild(i), name);
+                if (found != null) return found;
+            }
+            return null;
         }
 
         static string ModelFor(PartKind kind)
@@ -781,6 +825,9 @@ namespace OCS.VR.EditorTools
                 case PartKind.Psu:         return "psu";
                 case PartKind.Motherboard: return "motherboard";
                 case PartKind.Riser:       return "riser";
+                case PartKind.Cpu:         return "cpu_cooler";
+                case PartKind.Ram:         return "ram_stick";
+                case PartKind.Cable:       return "pcie_cables";
                 default:                   return null;
             }
         }
@@ -794,33 +841,47 @@ namespace OCS.VR.EditorTools
                 case PartKind.Psu:         return PsuSize;
                 case PartKind.Motherboard: return BoardSize;
                 case PartKind.Riser:       return RiserSize;
-                case PartKind.Cpu:         return new Vector3(0.05f, 0.006f, 0.05f);
-                case PartKind.Ram:         return new Vector3(0.006f, 0.03f, 0.133f);
-                case PartKind.Cable:       return new Vector3(0.02f, 0.02f, 0.30f);
+                case PartKind.Cpu:         return CoolerSize;
+                case PartKind.Ram:         return RamSize;
+                case PartKind.Cable:       return HarnessSize;
                 case PartKind.Fan:         return new Vector3(0.03f, 0.12f, 0.12f);
                 default:                   return Vector3.one * 0.1f;
             }
         }
 
-        /// <summary>Where each part ends up, relative to RigRoot. Parts sit on things.</summary>
-        static Vector3 SocketFor(AssemblyStep step, RigLayout layout)
+        /// <summary>
+        /// Where each part ends up, relative to RigRoot. Parts sit on things: the board and
+        /// supplies on the frame's lower rails, the cooler and RAM on the board, the risers
+        /// on the upper rail under their cards. nth counts earlier steps of the same kind,
+        /// so the second supply goes to the other end of the frame.
+        /// </summary>
+        static Vector3 SocketFor(AssemblyStep step, int nth, RigLayout layout)
         {
+            float lower = BenchTop + LowerLevel;                        // top of the lower rails
+            float board = lower + 0.006f + BoardSize.y / 2f;            // on standoffs
+            float boardTop = board + BoardSize.y / 2f;
             float cardBottom = layout.firstCardOffset.y - CardSize.y / 2f;
+            Vector3 first = layout.GetCardLocalPosition(0);
+            Vector3 last = layout.GetCardLocalPosition(layout.cardCount - 1);
+            Vector3 rowMiddle = (first + last) / 2f;
             switch (step.kind)
             {
                 case PartKind.Chassis:     return new Vector3(0f, BenchTop + FrameSize.y / 2f, 0f);
-                case PartKind.Motherboard: return new Vector3(0f, BenchTop + 0.021f, 0.02f);
-                case PartKind.Cpu:         return new Vector3(0.02f, BenchTop + 0.027f, 0.07f);
-                case PartKind.Ram:         return new Vector3(0.10f, BenchTop + 0.037f, 0.05f);
-                case PartKind.Psu:         return new Vector3(-0.47f, BenchTop + PsuSize.y / 2f, 0.05f);
-                case PartKind.Cable:       return new Vector3(-0.20f, cardBottom + CardSize.y + 0.02f, -0.12f);
-                case PartKind.Fan:         return new Vector3(0.38f, BenchTop + 0.14f, 0f);
+                case PartKind.Motherboard: return new Vector3(0f, board, 0f);
+                // On the CPU socket and in the first RAM slot, as the motherboard model has them.
+                case PartKind.Cpu:         return new Vector3(0.02f, boardTop + 0.007f + CoolerSize.y / 2f, 0.05f);
+                case PartKind.Ram:         return new Vector3(0.096f, boardTop + 0.004f + RamSize.y / 2f, 0.03f);
+                // One at each end, clear of the board and inside the end posts.
+                case PartKind.Psu:         return new Vector3(nth % 2 == 0 ? -0.275f : 0.275f, lower + PsuSize.y / 2f, -0.08f);
+                case PartKind.Cable:       return rowMiddle + HarnessFromCardRow;
+                case PartKind.Fan:         return new Vector3(0f, BenchTop + FrameSize.y + 0.03f, FrameSize.z / 2f);
                 case PartKind.Riser:
-                    // Directly under its card, so the card visibly plugs into it.
+                    // Under its card's PCIe fingers, which are 40 mm toward the bracket end,
+                    // so the card visibly plugs into it.
                     Vector3 card = layout.IsValidIndex(step.cardIndex)
                         ? layout.GetCardLocalPosition(step.cardIndex)
                         : Vector3.zero;
-                    return new Vector3(card.x, cardBottom - 0.012f, card.z);
+                    return new Vector3(card.x, cardBottom - 0.012f, card.z - 0.04f);
                 default:                   return Vector3.zero;
             }
         }
@@ -834,13 +895,13 @@ namespace OCS.VR.EditorTools
             switch (kind)
             {
                 case PartKind.Riser:
-                case PartKind.Cable:
-                case PartKind.Fan:         return 0;
-                case PartKind.Motherboard:
                 case PartKind.Cpu:
                 case PartKind.Ram:
+                case PartKind.Fan:         return 0;
+                case PartKind.Motherboard:
                 case PartKind.Psu:         return 1;
                 case PartKind.Gpu:         return 2;
+                case PartKind.Cable:       return 3;       // the harness is as wide as the card row
                 default:                   return -1;
             }
         }
@@ -853,7 +914,7 @@ namespace OCS.VR.EditorTools
         static Transform LayOutTray(AssemblySequence sequence, Dictionary<string, GameObject> partObjects, Transform partsParent,
                                     out Transform frameStand)
         {
-            const int rows = 3;
+            const int rows = 4;
             var width = new float[rows];
             var depth = new float[rows];
             foreach (AssemblyStep step in sequence.steps)
@@ -949,68 +1010,75 @@ namespace OCS.VR.EditorTools
 
         // ----------------------------------------------------------- placeholders
 
-        /// <summary>Two fans, a shroud, a backplate and an LED strip, named like the model.</summary>
+        /// <summary>Two fans, a shroud, a backplate and the lit logo, named like the model.</summary>
         static GameObject PlaceholderCard()
         {
             GameObject root = new GameObject("GPU (placeholder)");
             Child(root, "Body", PrimitiveType.Cube, new Vector3(-0.002f, 0f, 0f),
                   new Vector3(0.030f, CardSize.y - 0.004f, CardSize.z), "Shroud");
             Child(root, "Backplate", PrimitiveType.Cube, new Vector3(0.0175f, 0f, 0f),
-                  new Vector3(0.002f, CardSize.y - 0.012f, CardSize.z - 0.01f), "ShroudAccent");
-            // Same names and places as the Blender model: a light bar across the top edge,
-            // which is the face the viewer looks down on, and a ring around each fan.
-            Child(root, "LED", PrimitiveType.Cube, new Vector3(-0.002f, CardSize.y / 2f + 0.0015f, -0.02f),
-                  new Vector3(0.024f, 0.003f, 0.16f), "LED");
+                  new Vector3(0.002f, CardSize.y - 0.012f, CardSize.z - 0.01f), "Backplate");
+            // Same names and places as the Blender model: the lit logo along the top edge,
+            // toward the bracket end, and two fans on the shroud side.
+            Child(root, "LED", PrimitiveType.Cube, new Vector3(-0.004f, CardSize.y / 2f + 0.001f, -0.05f),
+                  new Vector3(0.006f, 0.002f, 0.14f), "LED");
 
             for (int f = 0; f < 2; f++)
             {
-                Vector3 fanPos = new Vector3(-0.0185f, 0f, f == 0 ? -0.063f : 0.063f);
-
-                // A disc just larger than the fan, sitting behind it, so only a lit rim
-                // shows around the blades. Not a child of the fan, so it doesn't spin.
-                GameObject ring = Child(root, "LED_Ring" + f, PrimitiveType.Cylinder, fanPos + new Vector3(0.0015f, 0f, 0f),
-                                        new Vector3(0.090f, 0.0008f, 0.090f), "LED");
-                ring.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
+                Vector3 fanPos = new Vector3(-0.0185f, 0f, f == 0 ? -0.060f : 0.060f);
 
                 GameObject fan = new GameObject("Fan" + f);
                 fan.transform.SetParent(root.transform, false);
                 fan.transform.localPosition = fanPos;
 
                 GameObject disc = Child(fan, "Disc", PrimitiveType.Cylinder, Vector3.zero,
-                                        new Vector3(0.082f, 0.002f, 0.082f), "FanBlack");
+                                        new Vector3(0.086f, 0.002f, 0.086f), "FanBlack");
                 disc.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);   // cylinder axis to X
 
                 // Blades, so the spin is visible. A plain disc spinning looks still.
                 for (int b = 0; b < 3; b++)
                 {
                     GameObject blade = Child(fan, "Blade", PrimitiveType.Cube, new Vector3(-0.003f, 0f, 0f),
-                                             new Vector3(0.002f, 0.074f, 0.012f), "ShroudAccent");
+                                             new Vector3(0.002f, 0.078f, 0.012f), "ShroudAccent");
                     blade.transform.localRotation = Quaternion.Euler(60f * b, 0f, 0f);
                 }
             }
             return root;
         }
 
-        /// <summary>An open air frame: four posts, rails between them, and a card bar.</summary>
+        /// <summary>
+        /// The two level frame, as the model has it: posts, a ring of rails at the bottom
+        /// and at the card level, supports for the board, the riser rail, the bar the card
+        /// brackets screw to, and rails tying the tops of the posts.
+        /// </summary>
         static GameObject PlaceholderFrame()
         {
             GameObject root = new GameObject("Frame (placeholder)");
-            float t = 0.02f;
+            const float t = 0.02f;
             float w = FrameSize.x, h = FrameSize.y, d = FrameSize.z;
             float yb = -h / 2f + t / 2f, yt = h / 2f - t / 2f;
+            float cardBottom = -h / 2f + CardTier;
+            float yTier = cardBottom - 0.013f - t / 2f;
+            float yBar = cardBottom + CardSize.y - 0.02f;
             float[] xs = { -w / 2f + t / 2f, w / 2f - t / 2f };
             float[] zs = { -d / 2f + t / 2f, d / 2f - t / 2f };
 
             foreach (float x in xs)
                 foreach (float z in zs)
                     Child(root, "Post", PrimitiveType.Cube, new Vector3(x, 0f, z), new Vector3(t, h, t), "FrameBlack");
-            foreach (float z in zs)
+            foreach (float y in new[] { yb, yTier })
             {
-                Child(root, "Rail", PrimitiveType.Cube, new Vector3(0f, yb, z), new Vector3(w - 2f * t, t, t), "FrameBlack");
-                Child(root, "Rail", PrimitiveType.Cube, new Vector3(0f, yt, z), new Vector3(w - 2f * t, t, t), "FrameBlack");
+                foreach (float z in zs)
+                    Child(root, "Rail", PrimitiveType.Cube, new Vector3(0f, y, z), new Vector3(w - 2f * t, t, t), "FrameBlack");
+                foreach (float x in xs)
+                    Child(root, "Rail", PrimitiveType.Cube, new Vector3(x, y, 0f), new Vector3(t, t, d - 2f * t), "FrameBlack");
             }
+            foreach (float z in new[] { -0.10f, 0.10f })
+                Child(root, "Board Rail", PrimitiveType.Cube, new Vector3(0f, yb, z), new Vector3(w - 2f * t, t, t), "FrameBlack");
+            Child(root, "Riser Rail", PrimitiveType.Cube, new Vector3(0f, yTier, -0.085f), new Vector3(w - 2f * t, t, t), "FrameBlack");
+            Child(root, "Bracket Bar", PrimitiveType.Cube, new Vector3(0f, yBar, zs[0]), new Vector3(w - 2f * t, t, t), "FrameBlack");
             foreach (float x in xs)
-                Child(root, "Rail", PrimitiveType.Cube, new Vector3(x, yb, 0f), new Vector3(t, t, d - 2f * t), "FrameBlack");
+                Child(root, "Top Rail", PrimitiveType.Cube, new Vector3(x, yt, 0f), new Vector3(t, t, d - 2f * t), "FrameBlack");
             return root;
         }
 
@@ -1061,7 +1129,8 @@ namespace OCS.VR.EditorTools
             EnsureFolder(MaterialsDir);
             Mat("Plinth", new Color(0.10f, 0.105f, 0.12f), 0f, 0.45f);
             Mat("PlinthBase", new Color(0.035f, 0.038f, 0.045f), 0f, 0.3f);
-            Mat("Shroud", new Color(0.08f, 0.08f, 0.09f), 0.2f, 0.55f);
+            Mat("Shroud", new Color(0.035f, 0.035f, 0.04f), 0.2f, 0.5f);
+            Mat("Backplate", new Color(0.03f, 0.03f, 0.035f), 0.6f, 0.55f);
             Mat("ShroudAccent", new Color(0.55f, 0.56f, 0.58f), 0.9f, 0.7f);
             Mat("FanBlack", new Color(0.03f, 0.03f, 0.03f), 0f, 0.4f);
             Mat("PCB", new Color(0.03f, 0.12f, 0.06f), 0f, 0.45f);
@@ -1076,7 +1145,7 @@ namespace OCS.VR.EditorTools
             Mat("Pulse", new Color(0.9f, 0.95f, 1.0f), 0f, 0.7f, emissive: true, emission: new Color(0.9f, 1.8f, 2.6f));
             Mat("RoomFloor", new Color(0.035f, 0.038f, 0.045f), 0f, 0.55f);
             Mat("RoomWall", new Color(0.03f, 0.032f, 0.038f), 0f, 0.1f);
-            Mat("FrameBlack", new Color(0.03f, 0.03f, 0.035f), 0.8f, 0.65f);
+            Mat("FrameBlack", new Color(0.025f, 0.025f, 0.028f), 0.3f, 0.4f);   // matte anodised
             // Sprites/Default blends by vertex colour, which is how lines and trails fade.
             Mat("Trail", Color.white, 0f, 0f, shader: "Sprites/Default");
             Mat("TimelineSegment", new Color(0.06f, 0.08f, 0.1f), 0f, 0.5f, emissive: true, emission: new Color(0.04f, 0.05f, 0.06f));

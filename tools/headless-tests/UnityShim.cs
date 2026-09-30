@@ -232,6 +232,8 @@ namespace UnityEngine
         public static Quaternion identity => new Quaternion();
         public static Quaternion LookRotation(Vector3 forward) => new Quaternion();
         public static Quaternion LookRotation(Vector3 forward, Vector3 up) => new Quaternion();
+        public static Quaternion AngleAxis(float angle, Vector3 axis) => new Quaternion();
+        public static Quaternion operator *(Quaternion a, Quaternion b) => new Quaternion();
     }
 
     public class TextMesh : Component

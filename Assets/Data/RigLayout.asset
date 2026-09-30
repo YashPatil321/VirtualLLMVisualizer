@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: RigLayout
   m_EditorClassIdentifier: 
   cardCount: 8
-  cardSpacing: 0.09
-  firstCardOffset: {x: -0.32, y: 0.12, z: 0}
+  cardSpacing: 0.075
+  firstCardOffset: {x: -0.2625, y: 0.2155, z: -0.045}
   cardAxis: {x: 1, y: 0, z: 0}
   tempMinC: 35
   tempMaxC: 85
