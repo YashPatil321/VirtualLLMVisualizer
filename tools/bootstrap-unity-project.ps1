@@ -14,6 +14,16 @@ if (-not (Test-Path (Join-Path $Fresh "Packages")))        { throw "No Packages\
 Write-Host "Copying the generated project config into the repo..."
 Copy-Item (Join-Path $Fresh "ProjectSettings") $Repo -Recurse -Force
 Copy-Item (Join-Path $Fresh "Packages")        $Repo -Recurse -Force
+
+# The URP pipeline assets. QualitySettings points at them by GUID, so they must come
+# across with their .meta files. Without them no pipeline is active and every URP
+# material renders magenta.
+$FreshSettings = Join-Path $Fresh "Assets\Settings"
+if (-not (Test-Path $FreshSettings)) { throw "No Assets\Settings\ in $Fresh. Was it made from the Universal 3D template?" }
+New-Item -ItemType Directory -Force (Join-Path $Repo "Assets") | Out-Null
+Copy-Item $FreshSettings (Join-Path $Repo "Assets") -Recurse -Force
+$FreshSettingsMeta = Join-Path $Fresh "Assets\Settings.meta"
+if (Test-Path $FreshSettingsMeta) { Copy-Item $FreshSettingsMeta (Join-Path $Repo "Assets") -Force }
 Remove-Item (Join-Path $Repo "Packages\packages-lock.json") -ErrorAction SilentlyContinue
 
 Write-Host "`nChecking every asset still has its .meta ..."
@@ -45,5 +55,5 @@ Done. Next:
   4. Window -> General -> Test Runner -> EditMode -> Run All.
      40 tests should pass.
 
-  5. git add ProjectSettings Packages ; git commit
+  5. git add ProjectSettings Packages Assets/Settings Assets/Settings.meta ; git commit
 "@

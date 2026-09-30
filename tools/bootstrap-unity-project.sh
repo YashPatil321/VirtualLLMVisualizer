@@ -3,7 +3,8 @@
 #
 # Unity Hub will not create a project inside a folder that already has files in it, so
 # the trick is the other direction: create a throwaway URP project with the Hub, then
-# copy the two folders Unity generated into this repo. The repo stays the git repo and
+# copy what Unity generated into this repo: ProjectSettings/, Packages/ and
+# Assets/Settings/. The repo stays the git repo and
 # becomes the Unity project.
 #
 #   ./tools/bootstrap-unity-project.sh ~/Unity/OCSVisualizer-fresh
@@ -34,6 +35,14 @@ fi
 echo "Copying the generated project config into the repo..."
 cp -R "$FRESH/ProjectSettings" "$REPO/"
 cp -R "$FRESH/Packages"        "$REPO/"
+
+# The URP pipeline assets. QualitySettings points at them by GUID, so they must come
+# across with their .meta files. Without them no pipeline is active and every URP
+# material renders magenta.
+[ -d "$FRESH/Assets/Settings" ] || { echo "No Assets/Settings/ in $FRESH. Was it made from the Universal 3D template?"; exit 1; }
+mkdir -p "$REPO/Assets"
+cp -R "$FRESH/Assets/Settings" "$REPO/Assets/"
+[ -e "$FRESH/Assets/Settings.meta" ] && cp "$FRESH/Assets/Settings.meta" "$REPO/Assets/"
 
 # Unity writes an absolute path in here on some versions; it is regenerated on open.
 rm -f "$REPO/Packages/packages-lock.json"
@@ -68,5 +77,5 @@ Done. Next:
   4. Window -> General -> Test Runner -> EditMode -> Run All.
      40 tests should pass. That is the real check; the headless suite is a stand-in.
 
-  5. git add ProjectSettings Packages && git commit
+  5. git add ProjectSettings Packages Assets/Settings Assets/Settings.meta && git commit
 DONE

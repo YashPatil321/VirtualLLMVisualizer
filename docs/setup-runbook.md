@@ -84,11 +84,16 @@ the repo cannot be the target of "New project". Go the other way:
 .\tools\bootstrap-unity-project.ps1 -Fresh "$HOME\Unity\OCSVisualizer-fresh"   # Windows
 ```
 
-   It copies the generated `ProjectSettings/` and `Packages/` into the repo and checks
-   that every asset still has its `.meta`. The repo is then both the git repo and the
-   Unity project, with history intact.
+   It copies the generated `ProjectSettings/`, `Packages/` and `Assets/Settings/` into
+   the repo and checks that every asset still has its `.meta`. The repo is then both the
+   git repo and the Unity project, with history intact.
 
-3. Unity Hub, Open, pick the repo folder. Commit `ProjectSettings/` and `Packages/`.
+   `Assets/Settings/` holds the URP pipeline assets, and `QualitySettings` points at
+   them by GUID. Leave them behind and no render pipeline is active: every URP material
+   renders magenta, while text still looks fine.
+
+3. Unity Hub, Open, pick the repo folder. Commit `ProjectSettings/`, `Packages/` and
+   `Assets/Settings/` with its `.meta` files.
 
 Do not copy `Assets/` out to a fresh project instead. The `.meta` files carry the GUIDs
 that the `.asset` data files reference, and a copy that drops them silently unlinks
@@ -234,3 +239,4 @@ That is V1. Commit it before touching anything else.
 | `adb devices` shows unauthorized | USB debugging prompt not accepted inside the headset |
 | `unity status` times out | Safe Mode from a C# compile error |
 | Terrible frame rate in an empty scene | Built in render pipeline instead of URP, or multi pass stereo |
+| Everything magenta except text | No URP asset active: `Assets/Settings/` missing, or none set under Project Settings, Graphics and Quality |
