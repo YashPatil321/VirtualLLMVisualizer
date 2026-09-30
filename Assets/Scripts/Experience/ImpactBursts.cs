@@ -33,6 +33,7 @@ namespace OCS.VR.Experience
         public float ringSeconds = 0.8f;
 
         static readonly int ColorId = Shader.PropertyToID("_Color");
+        static readonly Quaternion Flat = Quaternion.Euler(90f, 0f, 0f);
 
         float[] _start;
         float[] _size;
@@ -91,6 +92,15 @@ namespace OCS.VR.Experience
 
         void OnHopStarted(Hop hop)
         {
+            // Every node pings as the request reaches it: a ring turned to face the viewer.
+            if (view != null && view.nodeMarkers != null && graph != null && hop.Type != HopType.Model)
+            {
+                SystemNode node = graph.Resolve(hop);
+                int n = node == null ? -1 : graph.IndexOf(node);
+                if (n >= 0 && n < view.nodeMarkers.Length && view.nodeMarkers[n] != null)
+                    Play(view.nodeMarkers[n].position, 1.3f, seatColor, 0, true);
+            }
+
             if (hop.Type != HopType.Model || !hop.HasGpuTelemetry || rig == null || rig.cards == null) return;
             if (hop.gpu_index < 0 || hop.gpu_index >= rig.cards.Length || rig.cards[hop.gpu_index] == null) return;
             Play(rig.cards[hop.gpu_index].position + Vector3.up * 0.06f, 0.6f, cardColor, 50);
@@ -118,8 +128,11 @@ namespace OCS.VR.Experience
             return null;
         }
 
-        /// <summary>A ring size metres across at position, and count sparks.</summary>
-        public void Play(Vector3 position, float size, Color color, int count)
+        /// <summary>
+        /// A ring size metres across at position, and count sparks. The ring lies flat,
+        /// rushing out along the floor, unless faceViewer turns it upright toward them.
+        /// </summary>
+        public void Play(Vector3 position, float size, Color color, int count, bool faceViewer = false)
         {
             if (rings != null && rings.Length > 0)
             {
@@ -129,6 +142,9 @@ namespace OCS.VR.Experience
                 if (ring != null)
                 {
                     ring.transform.position = position;
+                    ring.transform.rotation = faceViewer && Camera.main != null
+                        ? Quaternion.LookRotation(position - Camera.main.transform.position)
+                        : Flat;
                     ring.gameObject.SetActive(true);
                     _start[i] = Time.time;
                     _size[i] = size;

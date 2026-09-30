@@ -209,6 +209,21 @@ namespace OCS.VR.EditorTools
                 }
             }
 
+            // A trail of light behind every part as it flies in, so the arcs show. Trails
+            // only draw while something moves, so parked parts cost nothing.
+            foreach (GameObject part in partObjects.Values)
+            {
+                TrailRenderer flight = part.AddComponent<TrailRenderer>();
+                flight.time = 0.35f;
+                flight.widthMultiplier = 0.035f;
+                flight.minVertexDistance = 0.02f;
+                flight.startColor = new Color(Cyan.r, Cyan.g, Cyan.b, 0.8f);
+                flight.endColor = new Color(Cyan.r, Cyan.g, Cyan.b, 0f);
+                flight.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                flight.receiveShadows = false;
+                if (Materials.ContainsKey("GlowBeam")) flight.sharedMaterial = Materials["GlowBeam"];
+            }
+
             GameObject parts = new GameObject("Parts");
             Transform frameStand;
             Transform trayOrigin = LayOutTray(sequence, partObjects, parts.transform, out frameStand);

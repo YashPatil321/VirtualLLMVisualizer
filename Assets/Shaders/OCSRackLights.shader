@@ -42,6 +42,7 @@ Shader "OCS/Rack Lights"
             float _OCSWaveRadius;
             float _OCSWaveStrength;
             float _OCSWake;
+            float _OCSRipple;
 
             struct Attributes
             {
@@ -98,7 +99,8 @@ Shader "OCS/Rack Lights"
                 float dotMask = saturate(1.0 - length(q) * 3.0) * inRow;
                 float h = Hash(float3(led, slot, rack));
                 float rate = lerp(0.4, 7.0, Hash(float3(led + 17.1, slot, rack)));
-                float blink = step(0.35, frac(_Time.y * rate + h));
+                // Busier while the rig generates: the whole hall looks like it's working.
+                float blink = step(0.35, frac(_Time.y * rate * (1.0 + _OCSRipple * 1.5) + h));
                 blink = max(blink, step(0.8, h));                    // some stay lit
                 half3 ledCol = h < 0.55 ? _LedA.rgb : (h < 0.85 ? _LedB.rgb : _LedC.rgb);
 

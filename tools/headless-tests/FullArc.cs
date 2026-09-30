@@ -273,14 +273,14 @@ public static class FullArc
         string finalAnswer = answerPanel.Shown ?? "";
         Console.WriteLine($"  hall                  : wave peaked at {peakWave:F2}, racks awake to {wakeAtRequest:F0} m by the request, " +
                           $"ripples peaked at {peakRipple:F2}");
-        Console.WriteLine($"  bursts                : {bursts.Played} (23 parts, power on, the card, the answer)");
+        Console.WriteLine($"  bursts                : {bursts.Played} (23 parts, 6 node pings, power on, the card, the answer)");
         Console.WriteLine($"  tokens                : {peakTokenRate:F1} particles/s while generating, {tokenRateAfter:F1} after");
         Console.WriteLine($"  prompt                : \"{(promptText.text ?? "").Replace("\n", " / ")}\"");
         Console.WriteLine($"  answer mid-stream     : \"{(answerMid ?? "(none)").Replace("\n", " / ")}\"");
         Console.WriteLine($"  answer at the end     : \"{finalAnswer.Replace("\n", " / ")}\"");
         if (peakWave < 0.5f || wakeAtRequest < 30f) { Console.WriteLine("  >>> BUG: the power on wave didn't run or didn't wake the hall."); problems++; }
         if (peakRipple < 0.9f) { Console.WriteLine("  >>> BUG: the floor never rippled while generating."); problems++; }
-        if (bursts.Played < 26) { Console.WriteLine("  >>> BUG: missing bursts."); problems++; }
+        if (bursts.Played < 32) { Console.WriteLine("  >>> BUG: missing bursts."); problems++; }
         if (peakTokenRate <= 0f || tokenRateAfter != 0f) { Console.WriteLine("  >>> BUG: tokens didn't stream, or kept streaming after."); problems++; }
         if (string.IsNullOrEmpty(promptText.text) || answerMid == null || !finalAnswer.EndsWith("tenth of a second.")) { Console.WriteLine("  >>> BUG: the answer panel didn't show the prompt or type out the whole answer."); problems++; }
         Console.WriteLine($"  stage                 : system view at scale {viewScaleAtRequest:F2} when the request starts, " +
