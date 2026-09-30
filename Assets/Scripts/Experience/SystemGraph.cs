@@ -6,12 +6,12 @@ using OCS.VR.Telemetry;
 namespace OCS.VR.Experience
 {
     /// <summary>
-    /// One box in the system view: client, broker, scheduler, a Mini, a rig.
+    /// One box in the system view: client, broker, scheduler, a rig.
     /// </summary>
     [Serializable]
     public class SystemNode
     {
-        [Tooltip("Matches Hop.node_id from the trace, e.g. rig-2, mini-07.")]
+        [Tooltip("Matches Hop.node_id from the trace, e.g. rig-2, ocs-broker.")]
         public string nodeId;
 
         [Tooltip("Shown on the world space label.")]
@@ -27,7 +27,7 @@ namespace OCS.VR.Experience
     }
 
     /// <summary>
-    /// The system view topology, as data. V5 needs nodes for client, broker, Mini,
+    /// The system view topology, as data. V5 needs nodes for client, broker,
     /// scheduler and both rigs; putting them in an asset means Yash can move the layout
     /// around without touching code, which is the same reason the rig layout is an asset.
     /// </summary>

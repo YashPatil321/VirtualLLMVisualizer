@@ -11,7 +11,7 @@
 
 Five minutes in a headset that answers one question: what actually happens when you send a prompt to our system?
 
-Most people's mental model of an LLM stops at a text box. This shows the rest of it. You stand next to a bare chassis, the rig assembles itself around you, it powers on, and then a request arrives and you watch it travel through the broker, across the network, into a Mac Mini, out to a card in front of you, and back.
+Most people's mental model of an LLM stops at a text box. This shows the rest of it. You stand next to a bare chassis, the rig assembles itself around you, it powers on, and then a request arrives and you watch it travel through the broker and the scheduler, out to a card in front of you, and back.
 
 It is an experience, not a tutorial. Nobody is being tested and nothing is gated. The viewer watches, looks around, and leaves understanding something they did not understand before.
 
@@ -42,7 +42,7 @@ flowchart LR
 
 **Act 3: Power on.** Fans spin, cards light. The moment a pile of parts becomes a machine.
 
-**Act 4: The request.** A prompt arrives. The system view opens up around the rig: client, broker, Mini, scheduler, rigs. The request travels the path with real per hop latency from a trace. Each hop labels itself as the request passes through.
+**Act 4: The request.** A prompt arrives. The system view opens up around the rig: client, broker, scheduler, rigs. The request travels the path with real per hop latency from a trace. Each hop labels itself as the request passes through.
 
 **Act 5: The answer.** The path lands on the rig in front of you. One specific card lights up. You see its load and temperature climb while it works. Tokens come back out along the same path. Then the system view fades and you are standing next to the rig again, which is now just a machine on a bench.
 

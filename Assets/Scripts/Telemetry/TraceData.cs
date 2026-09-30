@@ -9,6 +9,9 @@ namespace OCS.VR.Telemetry
         Client,
         Broker,
         Scheduler,
+        // No Mini runs in the current system; requests go from the scheduler straight to
+        // a rig. Kept because SystemGraph.asset stores hop types as numbers, and removing
+        // this would shift Rig and Model to the wrong values.
         Mini,
         Rig,
         Model

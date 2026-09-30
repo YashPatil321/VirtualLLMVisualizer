@@ -23,8 +23,8 @@ A trace is one request, start to finish, as an ordered list of hops.
 
 | Field | Type | Required | Meaning |
 |---|---|:---:|---|
-| `hop` | string | yes | One of `client`, `broker`, `scheduler`, `mini`, `rig`, `model` |
-| `node_id` | string | yes | Which Mini or which rig, e.g. `rig-2`, `mini-07` |
+| `hop` | string | yes | One of `client`, `broker`, `scheduler`, `rig`, `model` |
+| `node_id` | string | yes | Which node, e.g. `ocs-broker`, `rig-2` |
 | `t_start_ms` | number | yes | Milliseconds from trace start |
 | `t_end_ms` | number | yes | Milliseconds from trace start |
 | `status` | string | yes | `ok`, `queued`, `failed` |

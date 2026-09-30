@@ -10,7 +10,7 @@ namespace OCS.VR.Experience
     /// Cue format, so lines can be authored before the visuals exist:
     ///   act.EmptyBench, act.Assembly, act.PowerOn, act.Request, act.Answer, act.Complete
     ///   step.&lt;stepId&gt;   one per assembly step
-    ///   hop.&lt;hopType&gt;   client, broker, scheduler, mini, rig, model
+    ///   hop.&lt;hopType&gt;   client, broker, scheduler, rig, model
     /// </summary>
     [Serializable]
     public class NarrationLine

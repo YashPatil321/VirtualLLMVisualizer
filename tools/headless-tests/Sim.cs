@@ -46,10 +46,10 @@ public static class Sim
         foreach (var s in samples)
         {
             if (s.load > peakOverall) peakOverall = s.load;
-            if (s.ms >= 200f && s.ms <= 3200f && s.load > peakDuringGen) peakDuringGen = s.load;
+            if (s.ms >= 200f && s.ms <= 3100f && s.load > peakDuringGen) peakDuringGen = s.load;
         }
         Console.WriteLine($"  peak load on card 3, whole trace      : {peakOverall:F3}");
-        Console.WriteLine($"  peak load on card 3, DURING generation: {peakDuringGen:F3}   (168-3240ms, the 3s the card is working)");
+        Console.WriteLine($"  peak load on card 3, DURING generation: {peakDuringGen:F3}   (82-3154ms, the 3s the card is working)");
         for (float probe = 0; probe <= 3400; probe += 400)
         {
             float best = 0f; foreach (var s in samples) if (Math.Abs(s.ms - probe) < 20f && s.load > best) best = s.load;
@@ -82,7 +82,7 @@ public static class Sim
         float reqStart = -1, ansStart = -1;
         foreach (var e in actLog) { if (e.a == Act.Request) reqStart = e.t; if (e.a == Act.Answer) ansStart = e.t; }
         float reqLen = (ansStart >= 0 && reqStart >= 0) ? ansStart - reqStart : -1;
-        Console.WriteLine($"  Request act lasted {reqLen:F2}s (trace is ~6.6s at timeScale 0.5 + 1.5s tail)");
+        Console.WriteLine($"  Request act lasted {reqLen:F2}s (trace is ~6.4s at timeScale 0.5 + 1.5s tail)");
         if (reqLen >= 0 && reqLen < 1.0f)
         { Console.WriteLine("  >>> BUG: the Request act collapsed - the trace was already finished before Act 4 began."); problems++; }
 

@@ -99,7 +99,6 @@ namespace OCS.VR.Tests
                 new SystemNode { nodeId = "web-client",    displayName = "Client",    hopType = HopType.Client },
                 new SystemNode { nodeId = "ocs-broker",    displayName = "Broker",    hopType = HopType.Broker },
                 new SystemNode { nodeId = "gpu-scheduler", displayName = "Scheduler", hopType = HopType.Scheduler },
-                new SystemNode { nodeId = "mini-07",       displayName = "Mac Mini",  hopType = HopType.Mini },
                 new SystemNode { nodeId = "rig-2",         displayName = "Rig 2",     hopType = HopType.Rig }
             };
             return g;
@@ -117,12 +116,12 @@ namespace OCS.VR.Tests
         [Test]
         public void FallsBackToHopTypeForAnUnknownNodeId()
         {
-            // A Mini we have not placed yet should still land on the Mini box rather
-            // than vanishing from the system view.
+            // A rig we have not placed yet should still land on a rig box rather than
+            // vanishing from the system view.
             var g = MakeGraph();
-            var hop = new Hop { hop = "mini", node_id = "mini-99" };
+            var hop = new Hop { hop = "rig", node_id = "rig-9" };
 
-            Assert.AreEqual("Mac Mini", g.Resolve(hop).DisplayLabel);
+            Assert.AreEqual("Rig 2", g.Resolve(hop).DisplayLabel);
         }
 
         [Test]
@@ -151,8 +150,8 @@ namespace OCS.VR.Tests
             // The system view must have somewhere to put every hop the shipped trace
             // contains, or Act 4 has gaps in it.
             var g = MakeGraph();
-            string[] nodeIds = { "web-client", "ocs-broker", "gpu-scheduler", "mini-07", "rig-2", "rig-2", "ocs-broker", "web-client" };
-            string[] hopTypes = { "client", "broker", "scheduler", "mini", "rig", "model", "broker", "client" };
+            string[] nodeIds = { "web-client", "ocs-broker", "gpu-scheduler", "rig-2", "rig-2", "ocs-broker", "web-client" };
+            string[] hopTypes = { "client", "broker", "scheduler", "rig", "model", "broker", "client" };
 
             for (int i = 0; i < nodeIds.Length; i++)
             {

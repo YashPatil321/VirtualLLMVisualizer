@@ -15,8 +15,8 @@ Code complete and covered by tests, waiting on the editor:
 |---|---|---|
 | V3 | `AssemblySequence.asset` holds the 23 step build order. `AssemblyTimeline` plays it. | Part prefabs, tray and socket transforms, binding them in `AssemblyPlayer` |
 | V4 | `CardVisual` spins fans and drives LED glow from load. `RigPower` powers cards on in a ripple at Act 3. | Audio cue, and judging whether it reads as a moment on a headset |
-| V5 | `SystemGraph.asset` holds the six nodes. `SystemRouteState` routes hops to them. | Node markers, the pulse, world space labels |
-| V6 | `NarrationTrack.asset` holds 12 lines, plus one per assembly step. | A text component or AudioSource listening to `NarrationDirector` |
+| V5 | `SystemGraph.asset` holds the five nodes. `SystemRouteState` routes hops to them. | Node markers, the pulse, world space labels |
+| V6 | `NarrationTrack.asset` holds 11 lines, plus one per assembly step. | A text component or AudioSource listening to `NarrationDirector` |
 
 `tools/headless-tests/run.sh` compiles all of it and plays the full arc with no Unity
 installed. Last run: 40 tests pass, all 23 assembly steps fire, card 3 holds full load
@@ -77,7 +77,7 @@ calls and anything about how it feels can only come from the device.
 
 - [ ] Trace JSON deserialized into plain C# types per `docs/metrics-contract.md`
 - [ ] `Assets/Data/sample-trace.json` loads and validates
-- [ ] System view: nodes for client, broker, Mini, scheduler, both rigs
+- [ ] System view: nodes for client, broker, scheduler, both rigs
 - [ ] Request travels the path with timing from the trace
 - [ ] The named card lights and shows load and temperature climbing
 

@@ -29,18 +29,10 @@
       "label": "Least busy rig selected"
     },
     {
-      "hop": "mini",
-      "node_id": "mini-07",
-      "t_start_ms": 55,
-      "t_end_ms": 141,
-      "status": "ok",
-      "label": "Context assembled"
-    },
-    {
       "hop": "rig",
       "node_id": "rig-2",
-      "t_start_ms": 141,
-      "t_end_ms": 168,
+      "t_start_ms": 55,
+      "t_end_ms": 82,
       "status": "ok",
       "label": "Job accepted",
       "gpu_index": 3,
@@ -53,8 +45,8 @@
     {
       "hop": "model",
       "node_id": "rig-2",
-      "t_start_ms": 168,
-      "t_end_ms": 3240,
+      "t_start_ms": 82,
+      "t_end_ms": 3154,
       "status": "ok",
       "label": "Generating",
       "gpu_index": 3,
@@ -64,16 +56,16 @@
     {
       "hop": "broker",
       "node_id": "ocs-broker",
-      "t_start_ms": 3240,
-      "t_end_ms": 3259,
+      "t_start_ms": 3154,
+      "t_end_ms": 3173,
       "status": "ok",
       "label": "Response relayed"
     },
     {
       "hop": "client",
       "node_id": "web-client",
-      "t_start_ms": 3259,
-      "t_end_ms": 3266,
+      "t_start_ms": 3173,
+      "t_end_ms": 3180,
       "status": "ok",
       "label": "Answer rendered"
     }

@@ -8,7 +8,7 @@ A VR experience for Meta Quest that shows how our OCS LLM infrastructure works: 
 
 This is an **experience**, not a tutorial. There is no quiz, no gating, no scoring. The viewer watches and looks around. Pacing and clarity matter more than interactivity.
 
-Part of the CSH / OCS Intelligence Infrastructure project. Teammates Yash Parikh and Anvay Vahia own the broker, control plane, and Mini worker layer. I own the GPU rigs and this VR layer.
+Part of the CSH / OCS Intelligence Infrastructure project. Teammates Yash Parikh and Anvay Vahia own the broker and control plane. There are no Mac Minis in the path: the scheduler sends requests straight to a GPU rig. I own the GPU rigs and this VR layer.
 
 ## Hard constraints
 
@@ -113,7 +113,7 @@ named `Fan0`, `Fan1` and `LED`.
 
 Data, in `Assets/Data/`
 - `RigLayout.asset`, `AssemblySequence.asset` (23 steps), `SystemGraph.asset`
-  (6 nodes), `NarrationTrack.asset` (12 lines), `sample-trace.json`
+  (5 nodes), `NarrationTrack.asset` (11 lines), `sample-trace.json`
 
 Tests in `Assets/Tests/EditMode/` cover the loader, card lighting, the assembly
 timeline, hop routing and narration cues.

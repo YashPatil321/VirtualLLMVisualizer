@@ -34,21 +34,21 @@ namespace OCS.VR.Tests
         public void AdjacentHopsOnOneCardDoNotBlankIt()
         {
             // The real failure this guards. In sample-trace.json the rig hop on card 3
-            // ends at 168ms and the model hop on card 3 starts at 168ms, so both land in
+            // ends at 82ms and the model hop on card 3 starts at 82ms, so both land in
             // one frame: the model hop starts, then the rig hop ends. Last event wins
             // would leave card 3 dark for the whole three seconds of generation, which is
             // the one moment the experience exists to show.
             var s = new CardLoadState(8);
 
-            s.HopStarted(3, 0.94f);   // rig hop, 141-168ms
-            s.HopStarted(3, 1.00f);   // model hop starts, 168-3240ms
+            s.HopStarted(3, 0.94f);   // rig hop, 55-82ms
+            s.HopStarted(3, 1.00f);   // model hop starts, 82-3154ms
             s.HopEnded(3);            // rig hop ends, same frame
 
             Assert.AreEqual(1, s.ActiveHopCount(3), "model hop should still be running");
             Assert.AreEqual(1.00f, s.Target(3), "card 3 must stay lit through generation");
             Assert.AreEqual(3, s.ActiveCard);
 
-            s.HopEnded(3);            // model hop ends, 3240ms
+            s.HopEnded(3);            // model hop ends, 3154ms
             Assert.AreEqual(0f, s.Target(3));
             Assert.AreEqual(-1, s.ActiveCard);
         }

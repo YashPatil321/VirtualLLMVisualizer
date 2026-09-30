@@ -49,10 +49,6 @@ MonoBehaviour:
     text: "The scheduler picks the least busy rig."
     holdSeconds: 3
     clip: {fileID: 0}
-  - cue: hop.Mini
-    text: "A Mac Mini assembles the context."
-    holdSeconds: 3
-    clip: {fileID: 0}
   - cue: hop.Rig
     text: "Rig 2 takes the job."
     holdSeconds: 2
