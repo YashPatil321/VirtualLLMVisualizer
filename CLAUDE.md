@@ -102,6 +102,16 @@ Experience
 - `Experience/NarrationDirector.cs` — picks the line for what is happening
 - `Experience/RigPower.cs` — powers the cards on in a ripple at Act 3
 - `Experience/RoomAtmosphere.cs` — ambient light and background, carried by the room
+- `Experience/BeamGlowState.cs` — which system view links are lit, plain C#
+- `Experience/SystemBeams.cs` — draws those links, and the beam from Rig 2 to the card
+- `Experience/HopCaptions.cs` — what each node did and how long it took
+- `Experience/TelemetryText.cs` — every readout string, plain C#
+- `Experience/CardTelemetryLabel.cs` — load, temperature and tokens over the working card
+- `Experience/TimelineLayout.cs`, `Experience/RequestTimeline.cs` — the "where the time
+  goes" bar, with a playhead
+- `Experience/PartLabel.cs` — names a part with a leader line as it seats. Text, offset
+  and how long it stays come from the step's `label`, `labelOffset` and `labelSeconds`
+- `Experience/FaceCamera.cs` — turns labels to face the viewer
 
 Editor
 - `Editor/ExperienceSceneBuilder.cs` — OCS > Build Experience Scene. Uses models from
@@ -120,7 +130,7 @@ Data, in `Assets/Data/`
   (5 nodes), `NarrationTrack.asset` (11 lines), `sample-trace.json`
 
 Tests in `Assets/Tests/EditMode/` cover the loader, card lighting, the assembly
-timeline, hop routing and narration cues.
+timeline, hop routing, narration cues, beam glow, readout text and timeline layout.
 
 Visuals subscribe to player events. Playback and state logic never touch Transforms
 directly, which is why every one of those rules is covered by an edit mode test with no

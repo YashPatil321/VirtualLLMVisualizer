@@ -20,6 +20,10 @@ MonoBehaviour:
     travelSeconds: 2.5
     settleSeconds: 0.6
     narration: "An open frame. Eight cards need airflow more than they need a case."
+    labelled: 1
+    label: "Open-air frame"
+    labelOffset: {x: -0.42, y: 0.18, z: -0.22}
+    labelSeconds: 0
   - stepId: motherboard
     partName: "Motherboard"
     kind: 1
@@ -27,6 +31,10 @@ MonoBehaviour:
     travelSeconds: 2.0
     settleSeconds: 0.5
     narration: "The motherboard. Its job here is mostly to have enough PCIe lanes."
+    labelled: 1
+    label: ""
+    labelOffset: {x: 0, y: 0, z: 0}
+    labelSeconds: 8
   - stepId: cpu
     partName: "CPU"
     kind: 2
@@ -34,6 +42,10 @@ MonoBehaviour:
     travelSeconds: 1.5
     settleSeconds: 0.4
     narration: "The CPU barely works during inference. The cards do that."
+    labelled: 1
+    label: ""
+    labelOffset: {x: 0, y: 0, z: 0}
+    labelSeconds: 8
   - stepId: ram
     partName: "System RAM"
     kind: 3
@@ -41,6 +53,10 @@ MonoBehaviour:
     travelSeconds: 1.5
     settleSeconds: 0.4
     narration: "System memory holds the model while it is on its way to the cards."
+    labelled: 1
+    label: ""
+    labelOffset: {x: 0, y: 0, z: 0}
+    labelSeconds: 8
   - stepId: psu
     partName: "Power supply"
     kind: 4
@@ -48,6 +64,10 @@ MonoBehaviour:
     travelSeconds: 2.2
     settleSeconds: 0.6
     narration: "Eight cards is a lot of power. This is the part people underestimate."
+    labelled: 1
+    label: ""
+    labelOffset: {x: -0.3, y: 0.06, z: 0}
+    labelSeconds: 0
   - stepId: riser-0
     partName: "Riser 0"
     kind: 5
@@ -55,6 +75,10 @@ MonoBehaviour:
     travelSeconds: 1.0
     settleSeconds: 0.3
     narration: "A riser lifts the card off the board so eight of them fit."
+    labelled: 1
+    label: "PCIe risers (8)"
+    labelOffset: {x: 0, y: 0, z: 0}
+    labelSeconds: 8
   - stepId: riser-1
     partName: "Riser 1"
     kind: 5
@@ -62,6 +86,10 @@ MonoBehaviour:
     travelSeconds: 1.0
     settleSeconds: 0.3
     narration: ""
+    labelled: 0
+    label: ""
+    labelOffset: {x: 0, y: 0, z: 0}
+    labelSeconds: 0
   - stepId: riser-2
     partName: "Riser 2"
     kind: 5
@@ -69,6 +97,10 @@ MonoBehaviour:
     travelSeconds: 1.0
     settleSeconds: 0.3
     narration: ""
+    labelled: 0
+    label: ""
+    labelOffset: {x: 0, y: 0, z: 0}
+    labelSeconds: 0
   - stepId: riser-3
     partName: "Riser 3"
     kind: 5
@@ -76,6 +108,10 @@ MonoBehaviour:
     travelSeconds: 1.0
     settleSeconds: 0.3
     narration: ""
+    labelled: 0
+    label: ""
+    labelOffset: {x: 0, y: 0, z: 0}
+    labelSeconds: 0
   - stepId: riser-4
     partName: "Riser 4"
     kind: 5
@@ -83,6 +119,10 @@ MonoBehaviour:
     travelSeconds: 1.0
     settleSeconds: 0.3
     narration: ""
+    labelled: 0
+    label: ""
+    labelOffset: {x: 0, y: 0, z: 0}
+    labelSeconds: 0
   - stepId: riser-5
     partName: "Riser 5"
     kind: 5
@@ -90,6 +130,10 @@ MonoBehaviour:
     travelSeconds: 1.0
     settleSeconds: 0.3
     narration: ""
+    labelled: 0
+    label: ""
+    labelOffset: {x: 0, y: 0, z: 0}
+    labelSeconds: 0
   - stepId: riser-6
     partName: "Riser 6"
     kind: 5
@@ -97,6 +141,10 @@ MonoBehaviour:
     travelSeconds: 1.0
     settleSeconds: 0.3
     narration: ""
+    labelled: 0
+    label: ""
+    labelOffset: {x: 0, y: 0, z: 0}
+    labelSeconds: 0
   - stepId: riser-7
     partName: "Riser 7"
     kind: 5
@@ -104,6 +152,10 @@ MonoBehaviour:
     travelSeconds: 1.0
     settleSeconds: 0.3
     narration: ""
+    labelled: 0
+    label: ""
+    labelOffset: {x: 0, y: 0, z: 0}
+    labelSeconds: 0
   - stepId: gpu-0
     partName: "GTX 1070, card 0"
     kind: 6
@@ -111,6 +163,10 @@ MonoBehaviour:
     travelSeconds: 1.6
     settleSeconds: 0.5
     narration: "First card in. Eight gigabytes of VRAM, and seven more to go."
+    labelled: 1
+    label: "GPU 0"
+    labelOffset: {x: 0, y: 0, z: 0}
+    labelSeconds: 0
   - stepId: gpu-1
     partName: "GTX 1070, card 1"
     kind: 6
@@ -118,6 +174,10 @@ MonoBehaviour:
     travelSeconds: 1.6
     settleSeconds: 0.5
     narration: ""
+    labelled: 1
+    label: "GPU 1"
+    labelOffset: {x: 0, y: 0, z: 0}
+    labelSeconds: 0
   - stepId: gpu-2
     partName: "GTX 1070, card 2"
     kind: 6
@@ -125,6 +185,10 @@ MonoBehaviour:
     travelSeconds: 1.6
     settleSeconds: 0.5
     narration: ""
+    labelled: 1
+    label: "GPU 2"
+    labelOffset: {x: 0, y: 0, z: 0}
+    labelSeconds: 0
   - stepId: gpu-3
     partName: "GTX 1070, card 3"
     kind: 6
@@ -132,6 +196,10 @@ MonoBehaviour:
     travelSeconds: 1.6
     settleSeconds: 0.5
     narration: ""
+    labelled: 1
+    label: "GPU 3"
+    labelOffset: {x: 0, y: 0, z: 0}
+    labelSeconds: 0
   - stepId: gpu-4
     partName: "GTX 1070, card 4"
     kind: 6
@@ -139,6 +207,10 @@ MonoBehaviour:
     travelSeconds: 1.6
     settleSeconds: 0.5
     narration: ""
+    labelled: 1
+    label: "GPU 4"
+    labelOffset: {x: 0, y: 0, z: 0}
+    labelSeconds: 0
   - stepId: gpu-5
     partName: "GTX 1070, card 5"
     kind: 6
@@ -146,6 +218,10 @@ MonoBehaviour:
     travelSeconds: 1.6
     settleSeconds: 0.5
     narration: ""
+    labelled: 1
+    label: "GPU 5"
+    labelOffset: {x: 0, y: 0, z: 0}
+    labelSeconds: 0
   - stepId: gpu-6
     partName: "GTX 1070, card 6"
     kind: 6
@@ -153,6 +229,10 @@ MonoBehaviour:
     travelSeconds: 1.6
     settleSeconds: 0.5
     narration: ""
+    labelled: 1
+    label: "GPU 6"
+    labelOffset: {x: 0, y: 0, z: 0}
+    labelSeconds: 0
   - stepId: gpu-7
     partName: "GTX 1070, card 7"
     kind: 6
@@ -160,6 +240,10 @@ MonoBehaviour:
     travelSeconds: 1.6
     settleSeconds: 0.5
     narration: "That is all eight. Together they hold a model no single card could."
+    labelled: 1
+    label: "GPU 7"
+    labelOffset: {x: 0, y: 0, z: 0}
+    labelSeconds: 0
   - stepId: pcie-power
     partName: "PCIe power"
     kind: 7
@@ -167,6 +251,10 @@ MonoBehaviour:
     travelSeconds: 2.0
     settleSeconds: 0.5
     narration: "Every card gets its own power. Daisy chaining them is how rigs catch fire."
+    labelled: 1
+    label: "PCIe power cables"
+    labelOffset: {x: 0, y: 0, z: 0}
+    labelSeconds: 8
   - stepId: fans
     partName: "Case fans"
     kind: 8
@@ -174,4 +262,8 @@ MonoBehaviour:
     travelSeconds: 1.5
     settleSeconds: 0.5
     narration: "Fans last. Now it is a machine, not a pile of parts."
+    labelled: 1
+    label: ""
+    labelOffset: {x: 0, y: 0, z: 0}
+    labelSeconds: 0
   gapSeconds: 0.25

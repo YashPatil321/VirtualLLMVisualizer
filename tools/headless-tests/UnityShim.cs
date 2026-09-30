@@ -14,6 +14,12 @@ namespace UnityEngine
         public float x, y, z;
         public Vector3(float x, float y, float z) { this.x = x; this.y = y; this.z = z; }
         public static Vector3 right => new Vector3(1, 0, 0);
+        public static Vector3 up => new Vector3(0, 1, 0);
+        public float sqrMagnitude => x * x + y * y + z * z;
+        public static bool operator ==(Vector3 a, Vector3 b) => a.x == b.x && a.y == b.y && a.z == b.z;
+        public static bool operator !=(Vector3 a, Vector3 b) => !(a == b);
+        public override bool Equals(object o) => o is Vector3 v && v == this;
+        public override int GetHashCode() => x.GetHashCode() ^ y.GetHashCode() ^ z.GetHashCode();
         public static Vector3 zero => new Vector3(0, 0, 0);
         public static Vector3 one => new Vector3(1, 1, 1);
         public Vector3 normalized
@@ -108,12 +114,15 @@ namespace UnityEngine
     public class Component : Object
     {
         Transform _t;
+        GameObject _go;
         public Transform transform => _t ?? (_t = this as Transform ?? new Transform());
+        public GameObject gameObject => _go ?? (_go = new GameObject());
         public T GetComponent<T>() where T : class => null;
     }
 
     public class Renderer : Component
     {
+        public bool enabled = true;
         public Material sharedMaterial;
         public MaterialPropertyBlock LastBlock;
         public void GetPropertyBlock(MaterialPropertyBlock b) { }
@@ -121,6 +130,18 @@ namespace UnityEngine
     }
 
     public class Collider : Component { }
+
+    public class LineRenderer : Renderer
+    {
+        public bool useWorldSpace;
+        public int positionCount = 2, numCapVertices;
+        public float widthMultiplier;
+        public Color startColor, endColor;
+        public UnityEngine.Rendering.ShadowCastingMode shadowCastingMode;
+        public bool receiveShadows;
+        public Vector3[] Positions = new Vector3[2];
+        public void SetPosition(int i, Vector3 p) { Positions[i] = p; }
+    }
 
     public class TrailRenderer : Renderer
     {
@@ -194,9 +215,10 @@ namespace UnityEngine
     {
         public static Quaternion Euler(float x, float y, float z) => new Quaternion();
         public static Quaternion identity => new Quaternion();
+        public static Quaternion LookRotation(Vector3 forward) => new Quaternion();
     }
 
-    public class TextMesh : Object
+    public class TextMesh : Component
     {
         public Color color;
         public string text;
@@ -208,6 +230,7 @@ namespace UnityEngine
     public class Camera : Object
     {
         public CameraClearFlags clearFlags;
+        public float fieldOfView = 60f;
         public Color backgroundColor;
         public Transform transform = new Transform();
         public static Camera main => _main ?? (_main = new Camera());

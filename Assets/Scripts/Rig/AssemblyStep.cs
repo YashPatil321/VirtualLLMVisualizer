@@ -45,8 +45,24 @@ namespace OCS.VR.Rig
         [UnityEngine.Tooltip("One line, what it is and why it is there. Blank for no narration.")]
         public string narration;
 
+        [UnityEngine.Tooltip("Show a floating label on this part once it's seated. Off for " +
+                             "repeated parts that would clutter, like seven of eight risers.")]
+        public bool labelled = true;
+
+        [UnityEngine.Tooltip("Label text. Blank uses partName.")]
+        public string label;
+
+        [UnityEngine.Tooltip("Where the label sits, in metres from the part's centre. Zero puts " +
+                             "it just above the part. Move it for parts the cards will cover.")]
+        public UnityEngine.Vector3 labelOffset;
+
+        [UnityEngine.Tooltip("Seconds the label stays after the part seats. 0 keeps it for good. " +
+                             "Parts that end up under the cards should fade before the cards arrive.")]
+        public float labelSeconds;
+
         public float DurationSeconds => travelSeconds + settleSeconds;
         public bool TargetsCard => cardIndex >= 0;
         public string DisplayName => string.IsNullOrEmpty(partName) ? stepId : partName;
+        public string LabelText => string.IsNullOrEmpty(label) ? DisplayName : label;
     }
 }

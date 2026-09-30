@@ -90,6 +90,34 @@ public static class FullArc
         }
         rigDisplay.visuals = visuals;
         var power = new RigPower { sequencer = seq, cards = visuals };
+
+        // Beams, captions, the card readout and the timeline, wired as the builder does.
+        Trace parsedTrace; string perr;
+        TraceLoader.TryParse(json, out parsedTrace, out perr);
+        var drawable = TraceLoader.DrawableHops(parsedTrace);
+        var route = new List<int>();
+        foreach (var h in drawable) { var n = graph.Resolve(h); route.Add(n == null ? -1 : graph.IndexOf(n)); }
+        var ef = new List<int>(); var et = new List<int>();
+        BeamGlowState.EdgesFromRoute(route, ef, et);
+        var beamLines = new LineRenderer[ef.Count];
+        for (int i = 0; i < beamLines.Length; i++) beamLines[i] = new LineRenderer();
+        var cardBeam = new LineRenderer { enabled = false };
+        var beams = new SystemBeams { player = player, graph = graph, view = sysView, rig = rigDisplay,
+                                      edgeFrom = ef.ToArray(), edgeTo = et.ToArray(), lines = beamLines, cardBeam = cardBeam };
+        var captions = new TextMesh[graph.NodeCount];
+        for (int i = 0; i < captions.Length; i++) captions[i] = new TextMesh();
+        var hopCaptions = new HopCaptions { player = player, graph = graph, captions = captions };
+        var readoutText = new TextMesh();
+        var readout = new CardTelemetryLabel { player = player, rig = rigDisplay, text = readoutText };
+        var durations = new float[drawable.Count];
+        for (int i = 0; i < durations.Length; i++) durations[i] = drawable[i].DurationMs;
+        float[] segW = TimelineLayout.Widths(durations, 2.4f, 0.05f);
+        var segs = new Renderer[drawable.Count];
+        for (int i = 0; i < segs.Length; i++) segs[i] = new Renderer();
+        var timeline = new RequestTimeline { player = player, segments = segs, segmentLeft = TimelineLayout.Offsets(segW),
+                                             segmentWidth = segW, playhead = new Transform() };
+        int modelSeg = drawable.FindIndex(h => h.Type == HopType.Model);
+        var extras = new object[] { beams, hopCaptions, readout, timeline };
         int emissionId = Shader.PropertyToID("_EmissionColor");
         System.Func<int, float> glowOf = i =>
         {
@@ -100,6 +128,8 @@ public static class FullArc
         };
 
         foreach (var c in new object[] { rigDisplay, sysView, assembly, narrator, seq, power }) Call(c, "Awake");
+        foreach (var c in extras) Call(c, "Awake");
+        foreach (var c in extras) Call(c, "OnEnable");
         foreach (var v in visuals) Call(v, "Awake");
         foreach (var c in new object[] { rigDisplay, sysView, narrator, seq, power }) Call(c, "OnEnable");
 
@@ -111,6 +141,10 @@ public static class FullArc
         assembly.StepStarted += (s, i) => steps.Add((MonoBehaviour.Now, s.stepId));
 
         foreach (var c in new object[] { player, assembly, rigDisplay, sysView, narrator, seq, power }) Call(c, "Start");
+        foreach (var c in extras) Call(c, "Start");
+        var beamPeak = new float[beamLines.Length];
+        float cardBeamPeak = 0f, playheadMax = 0f, modelSegPeakRed = 0f;
+        bool sawStats = false, sawTokensDone = false; string midReadout = null;
         float maxGlowBeforePower = 0f, fanDegreesBeforePower = 0f;
         float peakGlowCard3 = 0f, peakGlowOthersDuringRequest = 0f;
         float minIdleGlowAfterPower = 1f;
@@ -134,7 +168,18 @@ public static class FullArc
             Call(player, "Update"); Call(assembly, "Update");
             Call(rigDisplay, "Update"); Call(sysView, "Update"); Call(narrator, "Update");
             foreach (var v in visuals) Call(v, "Update");
+            Call(beams, "Update"); Call(timeline, "Update"); Call(readout, "LateUpdate");
             MonoBehaviour.PumpCoroutines();
+
+            for (int b = 0; b < beamLines.Length; b++) if (beamLines[b].widthMultiplier > beamPeak[b]) beamPeak[b] = beamLines[b].widthMultiplier;
+            if (cardBeam.enabled && cardBeam.widthMultiplier > cardBeamPeak) cardBeamPeak = cardBeam.widthMultiplier;
+            if (timeline.playhead.localPosition.x > playheadMax) playheadMax = timeline.playhead.localPosition.x;
+            Color sc;
+            if (segs[modelSeg].LastBlock != null && segs[modelSeg].LastBlock.Colors.TryGetValue(Shader.PropertyToID("_EmissionColor"), out sc) && sc.r > modelSegPeakRed) modelSegPeakRed = sc.r;
+            string rt = readoutText.text ?? "";
+            if (rt.Contains("94% load")) sawStats = true;
+            if (rt.Contains("186 tokens")) sawTokensDone = true;
+            if (midReadout == null && rt.Contains("Generating") && !rt.Contains(" 0 tokens") && !rt.Contains("186 tokens")) midReadout = rt;
 
             Act now = seq.CurrentAct;
             if (now == Act.EmptyBench || now == Act.Assembly)
@@ -178,6 +223,17 @@ public static class FullArc
         Console.WriteLine($"  colour heat           : card 3 reaches {peakHeatCard3:F2} (amber is 1), other cards at most {peakHeatOthers:F2}");
         if (peakHeatCard3 < 0.95f) { Console.WriteLine("  >>> BUG: the working card doesn't shift to its hot colour."); problems++; }
         if (peakHeatOthers > 0.05f) { Console.WriteLine("  >>> BUG: an idle card shifts colour."); problems++; }
+        int lit = 0; foreach (float w in beamPeak) if (w > (beams.idleWidth + beams.litWidth) / 2f) lit++;
+        Console.WriteLine($"  beams                 : {lit} of {beamLines.Length} lit as the request passed; card beam peak width {cardBeamPeak:F3} m");
+        Console.WriteLine($"  timeline              : generation segment peaked at red {modelSegPeakRed:F1}, playhead reached {playheadMax:F2} of 2.40 m");
+        Console.WriteLine($"  scheduler caption     : \"{captions[graph.IndexOf(graph.Find("gpu-scheduler"))].text.Replace("\n", " / ")}\"");
+        Console.WriteLine($"  card readout mid-run  : \"{(midReadout ?? "(none)").Replace("\n", " / ")}\"");
+        if (lit != beamLines.Length || beamLines.Length != 4) { Console.WriteLine("  >>> BUG: not every beam on the route lit, or the route isn't 4 beams."); problems++; }
+        if (cardBeamPeak < 0.03f) { Console.WriteLine("  >>> BUG: the beam down to the working card never showed."); problems++; }
+        if (modelSegPeakRed < 2f) { Console.WriteLine("  >>> BUG: the generation segment never lit in the GPU colour."); problems++; }
+        if (playheadMax < 2.3f) { Console.WriteLine("  >>> BUG: the timeline playhead didn't reach the end."); problems++; }
+        if (!sawStats || !sawTokensDone || midReadout == null) { Console.WriteLine("  >>> BUG: the card readout missed its stats or its token count."); problems++; }
+        if (!captions[graph.IndexOf(graph.Find("gpu-scheduler"))].text.Contains("Least busy rig selected")) { Console.WriteLine("  >>> BUG: the scheduler's caption is wrong."); problems++; }
         float spun = 0f; for (int i = 0; i < 8; i++) spun += fanT[i].RotatedDegrees;
         Console.WriteLine($"  fans turned           : {spun / 8f / 360f:F0} revolutions per card on average");
         if (maxGlowBeforePower > 0.001f || fanDegreesBeforePower > 0.001f) { Console.WriteLine("  >>> BUG: cards glow or spin before power on."); problems++; }

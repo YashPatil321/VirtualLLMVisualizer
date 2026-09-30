@@ -27,9 +27,10 @@ namespace OCS.VR.EditorTools
         const string ScenePath = "Assets/Scenes/Experience.unity";
         const string EnvironmentPrefabPath = "Assets/Prefabs/Environment.prefab";
 
-        // Layout, in world metres, tuned by looking at the scene through the main camera.
-        // The viewer stands at (0, 1.6, -1.2) facing +z, the bench is 2m ahead, the parts
-        // table sits to its left and the frame waits on a stand to its right.
+        // Layout, in world metres. The bench, tray and frame stand were tuned by looking at
+        // the scene through the main camera. The viewer now starts 1.15 m from the bench
+        // rather than 2 m, so the rig fills the view; the rig itself stays real size, which
+        // is the point of seeing it in VR.
         static readonly Vector3 RigPosition = new Vector3(0f, 0.9f, 0.8f);
         const float BenchTopWorld = 0.88f;
         const float TrayGap = 0.04f;
@@ -42,14 +43,23 @@ namespace OCS.VR.EditorTools
         // SystemViewDisplay rewrites node positions from SystemGraph.asset every frame, so
         // moving nodes in the asset or the scene doesn't stick. The root transform is the
         // lever: scale the graph down and drop it so it sits just behind and above the cards.
-        static readonly Vector3 SystemViewPosition = new Vector3(0f, 0.4f, 1.5f);
-        const float SystemViewScale = 0.6f;
+        // Full size and raised: the system view spans the space behind and above the rig,
+        // with its nodes between 1.55 and 2.35 m up, clear of the rig's top at 1.18 m.
+        static readonly Vector3 SystemViewPosition = new Vector3(0f, 0.15f, 1.9f);
+        const float SystemViewScale = 1.0f;
+
+        // The "where the time goes" bar, under the system view and above the rig's top as
+        // seen from the viewer's eye line. Left of centre, because the beam from Rig 2 down
+        // to the working card crosses the right half of that band.
+        static readonly Vector3 TimelineCentre = new Vector3(-0.55f, 1.3f, 1.9f);
+        const float TimelineWidth = 2.3f;
 
         // Subtitle line just above the front edge of the bench, below the cards, so it never
-        // covers the rig or the system view. Dark, because the floor and horizon behind it
-        // are near white.
+        // covers the rig or the system view. Light, because the room is dark.
         static readonly Vector3 NarrationPosition = new Vector3(0f, 0.98f, 0.45f);
-        static readonly Color TextColour = new Color(0.1f, 0.12f, 0.15f);
+        static readonly Color TextColour = new Color(0.86f, 0.9f, 0.96f);
+        static readonly Color CaptionColour = new Color(0.62f, 0.72f, 0.84f);
+        static readonly Color ReadoutColour = new Color(1f, 0.88f, 0.72f);
 
         // Real sizes, metres, in Unity axes: x across, y up, z along. These match the
         // Blender models exactly, so placeholders and models are interchangeable.
@@ -96,9 +106,11 @@ namespace OCS.VR.EditorTools
             Camera cam = Camera.main;
             if (cam != null)
             {
-                // Standing eye height, where the layout was judged from.
-                cam.transform.position = new Vector3(0f, 1.6f, -1.2f);
-                cam.transform.rotation = Quaternion.Euler(8f, 0f, 0f);
+                // Standing eye height, 1.15 m from the bench, with a wider view so the tray
+                // and frame stand stay in frame. The XR rig replaces this camera later.
+                cam.transform.position = new Vector3(0f, 1.6f, -0.35f);
+                cam.transform.rotation = Quaternion.Euler(10f, 0f, 0f);
+                cam.fieldOfView = 70f;
                 cam.name = "Main Camera (flat preview, XR rig replaces this)";
             }
 
@@ -273,6 +285,13 @@ namespace OCS.VR.EditorTools
             sysView.nodeMarkers = markers;
             sysView.pulse = pulse.transform;
 
+            // ---------- how the software works ----------
+            BuildHopCaptions(graph, systemView.transform, player);
+            BuildBeams(trace, graph, systemView, sysView, cardDisplay, player);
+            BuildCardReadout(cardDisplay, player);
+            BuildTimeline(trace, player);
+            BuildPartLabels(sequence, partObjects, assembly);
+
             // ---------- narration ----------
             GameObject narrationGo = new GameObject("Narration");
             narrationGo.transform.position = NarrationPosition;
@@ -333,6 +352,214 @@ namespace OCS.VR.EditorTools
                       "Press Play to watch the arc on a flat screen.");
         }
 
+        // ------------------------------------------------------ software visuals
+
+        /// <summary>A world space text label. TextMesh brings its own MeshRenderer.</summary>
+        static TextMesh Text(string name, Transform parent, Vector3 position, float scale, int fontSize,
+                             TextAnchor anchor, Color colour, string content = "")
+        {
+            GameObject go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = position;
+            go.transform.localScale = Vector3.one * scale;
+            TextMesh t = go.AddComponent<TextMesh>();
+            t.text = content;
+            t.anchor = anchor;
+            t.fontSize = fontSize;
+            t.characterSize = 0.5f;
+            t.color = colour;
+            return t;
+        }
+
+        /// <summary>A two point line. Lines need their own GameObject: one renderer each.</summary>
+        static LineRenderer Line(string name, Transform parent, float width, Color colour)
+        {
+            GameObject go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            LineRenderer line = go.AddComponent<LineRenderer>();
+            line.useWorldSpace = true;
+            line.positionCount = 2;
+            line.widthMultiplier = width;
+            line.numCapVertices = 2;
+            line.startColor = colour;
+            line.endColor = colour;
+            line.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            line.receiveShadows = false;
+            if (Materials.ContainsKey("Trail")) line.sharedMaterial = Materials["Trail"];
+            return line;
+        }
+
+        /// <summary>Under each node: what happened there and how long it took.</summary>
+        static void BuildHopCaptions(SystemGraph graph, Transform systemView, TracePlayer player)
+        {
+            var captions = new TextMesh[graph.NodeCount];
+            for (int i = 0; i < graph.NodeCount; i++)
+            {
+                captions[i] = Text("Caption " + graph.nodes[i].nodeId, systemView,
+                                   graph.nodes[i].position + new Vector3(0f, -0.1f, -0.03f),
+                                   0.008f / SystemViewScale, 60, TextAnchor.UpperCenter, CaptionColour);
+            }
+            HopCaptions hc = systemView.gameObject.AddComponent<HopCaptions>();
+            hc.player = player;
+            hc.graph = graph;
+            hc.captions = captions;
+        }
+
+        /// <summary>
+        /// A beam for every pair of nodes the request travels between, worked out from the
+        /// trace now, plus the beam from the rig's node down to the working card.
+        /// </summary>
+        static void BuildBeams(TextAsset trace, SystemGraph graph, GameObject systemView, SystemViewDisplay view,
+                               RigCardDisplay rig, TracePlayer player)
+        {
+            var from = new List<int>();
+            var to = new List<int>();
+            Trace parsed;
+            string error;
+            if (TraceLoader.TryParse(trace.text, out parsed, out error))
+            {
+                var route = new List<int>();
+                foreach (Hop hop in TraceLoader.DrawableHops(parsed))
+                {
+                    SystemNode node = graph.Resolve(hop);
+                    route.Add(node == null ? -1 : graph.IndexOf(node));
+                }
+                BeamGlowState.EdgesFromRoute(route, from, to);
+            }
+
+            GameObject root = new GameObject("Beams");
+            var lines = new LineRenderer[from.Count];
+            for (int e = 0; e < from.Count; e++)
+                lines[e] = Line("Beam " + graph.nodes[from[e]].nodeId + " - " + graph.nodes[to[e]].nodeId,
+                                root.transform, 0.006f, new Color(0.35f, 0.55f, 0.9f, 0.25f));
+
+            LineRenderer cardBeam = Line("Card Beam", root.transform, 0f, new Color(1f, 0.6f, 0.2f, 0f));
+            cardBeam.enabled = false;
+
+            SystemBeams beams = systemView.AddComponent<SystemBeams>();
+            beams.player = player;
+            beams.graph = graph;
+            beams.view = view;
+            beams.rig = rig;
+            beams.edgeFrom = from.ToArray();
+            beams.edgeTo = to.ToArray();
+            beams.lines = lines;
+            beams.cardBeam = cardBeam;
+        }
+
+        /// <summary>The readout that floats over whichever card is working.</summary>
+        static void BuildCardReadout(RigCardDisplay rig, TracePlayer player)
+        {
+            TextMesh text = Text("Card Readout", null, Vector3.zero, 0.009f, 70, TextAnchor.LowerCenter, ReadoutColour);
+            text.gameObject.AddComponent<FaceCamera>();
+            CardTelemetryLabel label = text.gameObject.AddComponent<CardTelemetryLabel>();
+            label.player = player;
+            label.rig = rig;
+            label.text = text;
+            label.height = 0.24f;
+        }
+
+        /// <summary>
+        /// The "where the time goes" bar, one segment per hop, sized from the trace now so
+        /// the proportions are the real ones.
+        /// </summary>
+        static void BuildTimeline(TextAsset trace, TracePlayer player)
+        {
+            Trace parsed;
+            string error;
+            if (!TraceLoader.TryParse(trace.text, out parsed, out error)) return;
+            List<Hop> hops = TraceLoader.DrawableHops(parsed);
+
+            var durations = new float[hops.Count];
+            float total = 0f, generating = 0f;
+            for (int i = 0; i < hops.Count; i++)
+            {
+                durations[i] = hops[i].DurationMs;
+                total += durations[i];
+                if (hops[i].Type == HopType.Model) generating += durations[i];
+            }
+
+            float[] widths = TimelineLayout.Widths(durations, TimelineWidth, 0.05f);
+            float[] lefts = TimelineLayout.Offsets(widths);
+
+            GameObject root = new GameObject("Request Timeline");
+            root.transform.position = TimelineCentre - new Vector3(TimelineWidth / 2f, 0f, 0f);
+
+            var segments = new Renderer[hops.Count];
+            float gap = 0.004f;
+            for (int i = 0; i < hops.Count; i++)
+            {
+                GameObject seg = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                seg.name = "Segment " + i + " " + hops[i].hop;
+                seg.transform.SetParent(root.transform, false);
+                seg.transform.localPosition = new Vector3(lefts[i] + widths[i] / 2f, 0f, 0f);
+                seg.transform.localScale = new Vector3(Mathf.Max(0.002f, widths[i] - gap), 0.035f, 0.02f);
+                RemoveCollider(seg);
+                Paint(seg, "TimelineSegment");
+                segments[i] = seg.GetComponent<Renderer>();
+            }
+
+            GameObject head = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            head.name = "Playhead";
+            head.transform.SetParent(root.transform, false);
+            head.transform.localScale = new Vector3(0.006f, 0.075f, 0.03f);
+            RemoveCollider(head);
+            Paint(head, "Pulse");
+
+            Text("Title", root.transform, new Vector3(0f, 0.045f, 0f), 0.009f, 60, TextAnchor.LowerLeft,
+                 TextColour, "Where the time goes  ·  " + TelemetryText.Duration(total));
+            Text("Generating", root.transform, new Vector3(TimelineWidth, -0.035f, 0f), 0.008f, 60, TextAnchor.UpperRight,
+                 CaptionColour, "GPU generating  ·  " + TelemetryText.Duration(generating));
+            Text("Everything Else", root.transform, new Vector3(0f, -0.035f, 0f), 0.008f, 60, TextAnchor.UpperLeft,
+                 CaptionColour, "Routing, scheduling, network  ·  " + TelemetryText.Duration(total - generating));
+
+            RequestTimeline timeline = root.AddComponent<RequestTimeline>();
+            timeline.player = player;
+            timeline.segments = segments;
+            timeline.segmentLeft = lefts;
+            timeline.segmentWidth = widths;
+            timeline.playhead = head.transform;
+        }
+
+        /// <summary>
+        /// A label over every part the sequence asks for, shown as the part seats. Cards
+        /// alternate heights, since at 9 cm apart their labels would otherwise touch.
+        /// </summary>
+        static void BuildPartLabels(AssemblySequence sequence, Dictionary<string, GameObject> partObjects,
+                                    AssemblyPlayer assembly)
+        {
+            GameObject root = new GameObject("Part Labels");
+            foreach (AssemblyStep step in sequence.steps)
+            {
+                if (!step.labelled) continue;
+                GameObject part;
+                if (!partObjects.TryGetValue(step.stepId, out part)) continue;
+
+                Vector3 size = SizeFor(step);
+                Vector3 offset = step.labelOffset;
+                if (offset == Vector3.zero)
+                {
+                    offset = new Vector3(0f, size.y / 2f + 0.07f, 0f);
+                    if (step.kind == PartKind.Gpu && step.cardIndex % 2 == 1) offset.y += 0.05f;
+                }
+
+                TextMesh text = Text("Label " + step.stepId, root.transform, Vector3.zero, 0.007f, 60,
+                                     TextAnchor.LowerCenter, TextColour, step.LabelText);
+                text.gameObject.AddComponent<FaceCamera>();
+                LineRenderer leader = Line("Leader", text.transform, 0.0015f, new Color(0.7f, 0.8f, 0.95f, 0.6f));
+
+                PartLabel label = text.gameObject.AddComponent<PartLabel>();
+                label.assembly = assembly;
+                label.stepId = step.stepId;
+                label.target = part.transform;
+                label.offset = offset;
+                label.hideAfter = step.labelSeconds;
+                label.anchorHeight = size.y / 2f;
+                label.textRenderer = text.GetComponent<Renderer>();
+                label.leader = leader;
+            }
+        }
+
         // ------------------------------------------------------------------- room
 
         /// <summary>
@@ -385,11 +612,11 @@ namespace OCS.VR.EditorTools
             RoomSlab(env, "Wall Left", new Vector3(-halfWidth, height / 2f, zMid), new Vector3(wall, height, depth), "RoomWall");
             RoomSlab(env, "Wall Right", new Vector3(halfWidth, height / 2f, zMid), new Vector3(wall, height, depth), "RoomWall");
 
-            // Light strips: two along the back wall, one above each side wall.
-            RoomSlab(env, "Strip Back Low", new Vector3(0f, 0.9f, zFar - wall), new Vector3(halfWidth * 1.6f, 0.03f, 0.02f), "StripLight");
-            RoomSlab(env, "Strip Back High", new Vector3(0f, 2.6f, zFar - wall), new Vector3(halfWidth * 1.6f, 0.03f, 0.02f), "StripLight");
-            RoomSlab(env, "Strip Left", new Vector3(-halfWidth + wall, 2.6f, zMid), new Vector3(0.02f, 0.03f, depth * 0.8f), "StripLight");
-            RoomSlab(env, "Strip Right", new Vector3(halfWidth - wall, 2.6f, zMid), new Vector3(0.02f, 0.03f, depth * 0.8f), "StripLight");
+            // Light strips along the top of each side wall. None on the back wall: from the
+            // viewer's spot a line there runs behind the system view, the timeline or the card
+            // readout, and reads as part of them.
+            RoomSlab(env, "Strip Left", new Vector3(-halfWidth + wall, 3.05f, zMid), new Vector3(0.02f, 0.03f, depth * 0.8f), "StripLight");
+            RoomSlab(env, "Strip Right", new Vector3(halfWidth - wall, 3.05f, zMid), new Vector3(0.02f, 0.03f, depth * 0.8f), "StripLight");
 
             // Two server racks against the back wall, rows of status lights down their fronts.
             // Outside the width of the system view, so they frame it without competing.
@@ -769,6 +996,7 @@ namespace OCS.VR.EditorTools
             Mat("RackLedBlue", new Color(0.1f, 0.2f, 0.4f), 0f, 0.5f, emissive: true, emission: new Color(0.3f, 0.7f, 1.6f));
             // Sprites/Default blends by vertex colour, which is how the trail fades out.
             Mat("Trail", Color.white, 0f, 0f, shader: "Sprites/Default");
+            Mat("TimelineSegment", new Color(0.06f, 0.08f, 0.1f), 0f, 0.5f, emissive: true, emission: new Color(0.05f, 0.08f, 0.12f));
         }
 
         /// <summary>

@@ -48,6 +48,7 @@ namespace OCS.VR.Experience
         [Tooltip("Eases the travel so parts do not move at a constant crawl.")]
         public bool smoothTravel = true;
 
+        public event Action Started;
         public event Action<AssemblyStep, int> StepStarted;
         public event Action<AssemblyStep, int> StepEnded;
         public event Action Finished;
@@ -103,6 +104,7 @@ namespace OCS.VR.Experience
             _timeline.Reset();
             ParkAllParts();
             _playing = true;
+            Started?.Invoke();
         }
 
         public void Stop() => _playing = false;

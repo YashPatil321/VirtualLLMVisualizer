@@ -10,7 +10,9 @@ public static class RunTests
         foreach (var t in new[]{ typeof(OCS.VR.Tests.TraceLoaderTests), typeof(OCS.VR.Tests.CardLoadStateTests),
                                 typeof(OCS.VR.Tests.AssemblyTimelineTests), typeof(OCS.VR.Tests.SystemRouteStateTests),
                                 typeof(OCS.VR.Tests.SystemGraphTests), typeof(OCS.VR.Tests.NarrationTrackTests),
-                                typeof(OCS.VR.Tests.CardVisualMathTests) })
+                                typeof(OCS.VR.Tests.CardVisualMathTests),
+                                typeof(OCS.VR.Tests.BeamGlowStateTests), typeof(OCS.VR.Tests.TelemetryTextTests),
+                                typeof(OCS.VR.Tests.TimelineLayoutTests) })
         {
         Console.WriteLine("-- " + t.Name);
         var inst = Activator.CreateInstance(t);
