@@ -209,9 +209,9 @@ public static class FullArc
             Color sc;
             if (segs[modelSeg].LastBlock != null && segs[modelSeg].LastBlock.Colors.TryGetValue(Shader.PropertyToID("_EmissionColor"), out sc) && sc.r > modelSegPeakRed) modelSegPeakRed = sc.r;
             string rt = readoutText.text ?? "";
-            if (rt.Contains("94% load")) sawStats = true;
-            if (rt.Contains("186 tokens")) sawTokensDone = true;
-            if (midReadout == null && rt.Contains("Generating") && !rt.Contains(" 0 tokens") && !rt.Contains("186 tokens")) midReadout = rt;
+            if (rt.Contains("92% load")) sawStats = true;
+            if (rt.Contains("94 tokens")) sawTokensDone = true;
+            if (midReadout == null && rt.Contains("Generating") && !rt.Contains(" 0 tokens") && !rt.Contains("94 tokens")) midReadout = rt;
 
             Act now = seq.CurrentAct;
             float g;
@@ -241,18 +241,22 @@ public static class FullArc
             }
             if (now == Act.Request)
             {
-                if (glowOf(3) > peakGlowCard3) peakGlowCard3 = glowOf(3);
-                if (heatOf(3) > peakHeatCard3) peakHeatCard3 = heatOf(3);
-                for (int i = 0; i < 8; i++) if (i != 3 && heatOf(i) > peakHeatOthers) peakHeatOthers = heatOf(i);
+                // The replica: GPUs 0 to 3 work together; 4 to 7 should stay idle.
+                for (int i = 0; i < 4; i++)
+                {
+                    if (glowOf(i) > peakGlowCard3) peakGlowCard3 = glowOf(i);
+                    if (heatOf(i) > peakHeatCard3) peakHeatCard3 = heatOf(i);
+                }
+                for (int i = 4; i < 8; i++) if (heatOf(i) > peakHeatOthers) peakHeatOthers = heatOf(i);
                 for (int i = 0; i < 8; i++)
                 {
-                    if (i == 3) continue;
+                    if (i < 4) continue;
                     if (glowOf(i) > peakGlowOthersDuringRequest) peakGlowOthersDuringRequest = glowOf(i);
                     if (glowOf(i) < minIdleGlowAfterPower) minIdleGlowAfterPower = glowOf(i);
                 }
             }
 
-            if (rigDisplay.LoadOf(3) > peakCard3) peakCard3 = rigDisplay.LoadOf(3);
+            for (int i = 0; i < 4; i++) if (rigDisplay.LoadOf(i) > peakCard3) peakCard3 = rigDisplay.LoadOf(i);
             int busy = 0; for (int n = 0; n < graph.NodeCount; n++) if (sysView.GlowOf(n) > 0.5f) busy++;
             if (busy > maxBusyNodes) maxBusyNodes = busy;
             if (seq.CurrentAct == Act.Complete) break;
@@ -264,20 +268,20 @@ public static class FullArc
         float total = acts.Count > 0 ? MonoBehaviour.Now : 0f;
         Console.WriteLine($"\n  assembly steps played : {steps.Count} of {sequence.StepCount}");
         Console.WriteLine($"  narration lines shown : {narrated.Count}");
-        Console.WriteLine($"  peak load on card 3   : {peakCard3:F2}");
+        Console.WriteLine($"  peak load, GPUs 0-3   : {peakCard3:F2}");
         Console.WriteLine($"  total runtime         : {total:F0}s (budget {ExperienceSequencer.MaxRuntimeSeconds:F0}s)");
 
         Console.WriteLine($"  glow before power on  : {maxGlowBeforePower:F2}   fan degrees before power on: {fanDegreesBeforePower:F0}");
-        Console.WriteLine($"  during the request    : card 3 peaks at {peakGlowCard3:F2}, other cards at most {peakGlowOthersDuringRequest:F2} (idle glow {minIdleGlowAfterPower:F2})");
-        Console.WriteLine($"  colour heat           : card 3 reaches {peakHeatCard3:F2} (amber is 1), other cards at most {peakHeatOthers:F2}");
+        Console.WriteLine($"  during the request    : GPUs 0-3 peak at {peakGlowCard3:F2}, other cards at most {peakGlowOthersDuringRequest:F2} (idle glow {minIdleGlowAfterPower:F2})");
+        Console.WriteLine($"  colour heat           : GPUs 0-3 reach {peakHeatCard3:F2} (amber is 1), other cards at most {peakHeatOthers:F2}");
         if (peakHeatCard3 < 0.95f) { Console.WriteLine("  >>> BUG: the working card doesn't shift to its hot colour."); problems++; }
         if (peakHeatOthers > 0.05f) { Console.WriteLine("  >>> BUG: an idle card shifts colour."); problems++; }
         int lit = 0; foreach (float w in beamPeak) if (w > (beams.idleWidth + beams.litWidth) / 2f) lit++;
         Console.WriteLine($"  beams                 : {lit} of {beamLines.Length} lit as the request passed; card beam peak width {cardBeamPeak:F3} m");
         Console.WriteLine($"  timeline              : generation segment peaked at red {modelSegPeakRed:F1}, playhead reached {playheadMax:F2} of 2.40 m");
-        Console.WriteLine($"  scheduler caption     : \"{captions[graph.IndexOf(graph.Find("gpu-scheduler"))].text.Replace("\n", " / ")}\"");
+        Console.WriteLine($"  broker caption        : \"{captions[graph.IndexOf(graph.Find("ocs-broker"))].text.Replace("\n", " / ")}\"");
         Console.WriteLine($"  card readout mid-run  : \"{(midReadout ?? "(none)").Replace("\n", " / ")}\"");
-        if (lit != beamLines.Length || beamLines.Length != 4) { Console.WriteLine("  >>> BUG: not every beam on the route lit, or the route isn't 4 beams."); problems++; }
+        if (lit != beamLines.Length || beamLines.Length != 6) { Console.WriteLine("  >>> BUG: not every beam on the route lit, or the route isn't 6 beams."); problems++; }
         string finalAnswer = answerPanel.Shown ?? "";
         Console.WriteLine($"  hall                  : wave peaked at {peakWave:F2}, racks awake to {wakeAtRequest:F0} m by the request, " +
                           $"ripples peaked at {peakRipple:F2}");
@@ -289,14 +293,14 @@ public static class FullArc
         string journeyEnd = journey.Shown ?? "";
         Console.WriteLine($"  journey board, end    : \"{journeyEnd.Substring(Math.Max(0, journeyEnd.LastIndexOf('\n') + 1))}\"");
         Console.WriteLine($"  answer heading        : \"{(answerPanel.responseHeading != null ? answerPanel.responseHeading.text : "(none)")}\"");
-        if (journeyDuringModel == null || !journeyDuringModel.Contains("<color=" + JourneyText.Gpu + ">5  Rig 2  ·  Generating"))
+        if (journeyDuringModel == null || !journeyDuringModel.Contains("<color=" + JourneyText.Gpu + ">9  Rig 2  ·  Generating"))
         { Console.WriteLine("  >>> BUG: the journey board didn't light the GPU step while it ran.\n      " + journeyDuringModel); problems++; }
-        if (!journeyEnd.Contains("Total 3.18 s") || !journeyEnd.Contains("96.6%")) { Console.WriteLine("  >>> BUG: the journey board didn't end on the total."); problems++; }
+        if (!journeyEnd.Contains("Total 10.02 s") || !journeyEnd.Contains("98.1%")) { Console.WriteLine("  >>> BUG: the journey board didn't end on the total."); problems++; }
         if (peakWave < 0.5f || wakeAtRequest < 30f) { Console.WriteLine("  >>> BUG: the power on wave didn't run or didn't wake the hall."); problems++; }
         if (peakRipple < 0.9f) { Console.WriteLine("  >>> BUG: the floor never rippled while generating."); problems++; }
         if (bursts.Played < 32) { Console.WriteLine("  >>> BUG: missing bursts."); problems++; }
         if (peakTokenRate <= 0f || tokenRateAfter != 0f) { Console.WriteLine("  >>> BUG: tokens didn't stream, or kept streaming after."); problems++; }
-        if (string.IsNullOrEmpty(promptText.text) || answerMid == null || !finalAnswer.EndsWith("tenth of a second.")) { Console.WriteLine("  >>> BUG: the answer panel didn't show the prompt or type out the whole answer."); problems++; }
+        if (string.IsNullOrEmpty(promptText.text) || answerMid == null || !finalAnswer.EndsWith("this one.")) { Console.WriteLine("  >>> BUG: the answer panel didn't show the prompt or type out the whole answer."); problems++; }
         Console.WriteLine($"  stage                 : system view at scale {viewScaleAtRequest:F2} when the request starts, " +
                           $"timeline at {timelineScaleLate:F2} by the answer, tray and stand {(trayShownAtRequest ? "still there" : "gone")}");
         if (viewShownDuringAssembly || timelineShownBeforeRequest) { Console.WriteLine("  >>> BUG: the system view or timeline showed before its act."); problems++; }
@@ -306,17 +310,17 @@ public static class FullArc
         if (modelSegPeakRed < 2f) { Console.WriteLine("  >>> BUG: the generation segment never lit in the GPU colour."); problems++; }
         if (playheadMax < 2.3f) { Console.WriteLine("  >>> BUG: the timeline playhead didn't reach the end."); problems++; }
         if (!sawStats || !sawTokensDone || midReadout == null) { Console.WriteLine("  >>> BUG: the card readout missed its stats or its token count."); problems++; }
-        if (!captions[graph.IndexOf(graph.Find("gpu-scheduler"))].text.Contains("Least busy rig selected")) { Console.WriteLine("  >>> BUG: the scheduler's caption is wrong."); problems++; }
+        if (!captions[graph.IndexOf(graph.Find("ocs-broker"))].text.Contains("Response relayed")) { Console.WriteLine("  >>> BUG: the broker's caption is wrong."); problems++; }
         float spun = 0f; for (int i = 0; i < 8; i++) spun += fanT[i].RotatedDegrees;
         Console.WriteLine($"  fans turned           : {spun / 8f / 360f:F0} revolutions per card on average");
         if (maxGlowBeforePower > 0.001f || fanDegreesBeforePower > 0.001f) { Console.WriteLine("  >>> BUG: cards glow or spin before power on."); problems++; }
-        if (peakGlowCard3 < 0.95f) { Console.WriteLine("  >>> BUG: card 3 does not reach full glow while generating."); problems++; }
+        if (peakGlowCard3 < 0.95f) { Console.WriteLine("  >>> BUG: the replica (GPUs 0-3) does not reach full glow while generating."); problems++; }
         if (peakGlowOthersDuringRequest > 0.2f) { Console.WriteLine("  >>> BUG: another card glows as if it were working."); problems++; }
         if (minIdleGlowAfterPower < 0.05f) { Console.WriteLine("  >>> BUG: powered cards are dark when idle."); problems++; }
         if (spun <= 0f) { Console.WriteLine("  >>> BUG: fans never turned."); problems++; }
 
         if (steps.Count != sequence.StepCount) { Console.WriteLine("  >>> BUG: not every assembly step played."); problems++; }
-        if (peakCard3 < 0.9f) { Console.WriteLine("  >>> BUG: card 3 never lit properly."); problems++; }
+        if (peakCard3 < 0.9f) { Console.WriteLine("  >>> BUG: the replica (GPUs 0-3) never lit properly."); problems++; }
         if (seq.CurrentAct != Act.Complete) { Console.WriteLine("  >>> BUG: the arc never reached Complete."); problems++; }
         if (total > ExperienceSequencer.MaxRuntimeSeconds) { Console.WriteLine("  >>> OVER BUDGET: longer than five minutes."); problems++; }
         if (narrated.Count == 0) { Console.WriteLine("  >>> BUG: no narration fired."); problems++; }

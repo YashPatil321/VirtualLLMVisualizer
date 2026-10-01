@@ -195,4 +195,40 @@ namespace OCS.VR.Tests
             Assert.AreEqual("RESPONSE  ·  GPU 3  ·  m-7b, Q4_K_M", AnswerText.ResponseHeading(trace));
         }
     }
+
+    public class PlaybackPaceTests
+    {
+        static OCS.VR.Telemetry.Hop H(float start, float end) => new OCS.VR.Telemetry.Hop { hop = "broker", t_start_ms = start, t_end_ms = end };
+
+        [Test]
+        public void NothingRunningPlaysAtTimeScale()
+        {
+            Assert.AreEqual(500f, OCS.VR.Telemetry.PlaybackPace.MsPerSecond(new OCS.VR.Telemetry.Hop[0], 0.5f, 2f));
+        }
+
+        [Test]
+        public void AShortHopIsStretchedToTheMinimum()
+        {
+            // 20 ms shown for 2 s: 10 trace ms per real second.
+            Assert.AreEqual(10f, OCS.VR.Telemetry.PlaybackPace.MsPerSecond(new[] { H(0, 20) }, 1f, 2f), 1e-4f);
+        }
+
+        [Test]
+        public void LongHopsAreLeftAlone()
+        {
+            Assert.AreEqual(1000f, OCS.VR.Telemetry.PlaybackPace.MsPerSecond(new[] { H(0, 8000) }, 1f, 2f));
+        }
+
+        [Test]
+        public void TheShortestRunningHopSetsThePace()
+        {
+            Assert.AreEqual(5f, OCS.VR.Telemetry.PlaybackPace.MsPerSecond(new[] { H(0, 8000), H(100, 110) }, 1f, 2f), 1e-4f);
+        }
+
+        [Test]
+        public void ZeroMinimumPlaysStraight()
+        {
+            Assert.AreEqual(1000f, OCS.VR.Telemetry.PlaybackPace.MsPerSecond(new[] { H(0, 20) }, 1f, 0f));
+        }
+    }
 }

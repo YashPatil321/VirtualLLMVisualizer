@@ -26,35 +26,47 @@ MonoBehaviour:
     holdSeconds: 5
     clip: {fileID: 0}
   - cue: act.Request
-    text: "Someone just sent a prompt. Watch where it goes."
+    text: "A student just asked our model a question. Watch where it goes."
     holdSeconds: 5
     clip: {fileID: 0}
   - cue: act.Answer
-    text: "The answer came back off that card, in front of you."
+    text: "The answer streamed back the same way it came, token by token."
     holdSeconds: 6
     clip: {fileID: 0}
   - cue: act.Complete
-    text: "Same machine you started next to. Now you know what it does."
+    text: "That was Rig 2, our dev and test rig. Rig 1 serves students the same way."
     holdSeconds: 6
     clip: {fileID: 0}
   - cue: hop.Client
-    text: "A prompt leaves the browser."
+    text: "It leaves the student's browser over HTTPS."
     holdSeconds: 2
     clip: {fileID: 0}
   - cue: hop.Broker
-    text: "The broker works out whose session this is."
+    text: "The broker signs the student in and puts the job in a queue."
     holdSeconds: 3
     clip: {fileID: 0}
   - cue: hop.Scheduler
-    text: "The scheduler picks the least busy rig."
+    text: "Scheduling: a healthy replica with the model already loaded, and the least busy one."
     holdSeconds: 3
     clip: {fileID: 0}
   - cue: hop.Rig
-    text: "Rig 2 takes the job."
+    text: "llama-server on Rig 2 takes the job."
     holdSeconds: 2
     clip: {fileID: 0}
   - cue: hop.Model
-    text: "Card three is generating. This is where the model actually runs."
+    text: "Four cards, one model. Qwen 27B is split across them, layer by layer."
     holdSeconds: 5
+    clip: {fileID: 0}
+  - cue: hop.Relay
+    text: "First stop, our AWS relay. NGINX ends the encryption and rate limits it."
+    holdSeconds: 4
+    clip: {fileID: 0}
+  - cue: hop.Store
+    text: "Redis knows which workers are healthy, and which have the model loaded."
+    holdSeconds: 4
+    clip: {fileID: 0}
+  - cue: hop.Network
+    text: "NetBird carries it privately to the rig. Students never touch a rig directly."
+    holdSeconds: 4
     clip: {fileID: 0}
   defaultHoldSeconds: 4

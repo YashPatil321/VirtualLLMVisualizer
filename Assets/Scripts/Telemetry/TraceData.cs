@@ -14,7 +14,15 @@ namespace OCS.VR.Telemetry
         // this would shift Rig and Model to the wrong values.
         Mini,
         Rig,
-        Model
+        // Model covers both stages on the GPUs: "prefill" (reading the prompt) and
+        // "model" (generating). Only the second carries tokens_out.
+        Model,
+        // The rest of the real path, from the OCS Intelligence architecture: the AWS
+        // relay (NGINX + TLS), the NetBird private overlay, and the data stores the broker
+        // consults (Redis, RDS). Appended, so the numbers above keep their meaning.
+        Relay,
+        Network,
+        Store
     }
 
     public enum HopStatus
@@ -45,6 +53,10 @@ namespace OCS.VR.Telemetry
         // Worth confirming on the first real parse, because a silent 0 here would
         // light up the wrong card.
         public int gpu_index = -1;
+
+        // How many cards, from gpu_index up, the hop runs on. A model too big for one
+        // 8 GB card is split across several: a replica. Absent means one card.
+        public int gpu_count = 1;
         public float gpu_util;
         public float vram_used_mb;
         public float temp_c;
@@ -59,6 +71,8 @@ namespace OCS.VR.Telemetry
         public HopStatus Status => ParseStatus(status);
         public float DurationMs => t_end_ms - t_start_ms;
         public bool HasGpuTelemetry => gpu_index >= 0;
+        public int GpuCount => gpu_count > 1 ? gpu_count : 1;
+        public int GpuLast => gpu_index + GpuCount - 1;
         public string DisplayLabel => string.IsNullOrEmpty(label) ? node_id : label;
 
         public static HopType ParseType(string value)
@@ -73,6 +87,14 @@ namespace OCS.VR.Telemetry
                 case "mini": return HopType.Mini;
                 case "rig": return HopType.Rig;
                 case "model": return HopType.Model;
+                case "prefill": return HopType.Model;
+                case "relay": return HopType.Relay;
+                case "network":
+                case "netbird": return HopType.Network;
+                case "store":
+                case "registry":
+                case "redis":
+                case "rds": return HopType.Store;
                 // Unknown hop types are skipped by the player, never thrown on.
                 // The broker can add hop types without breaking a shipped headset build.
                 default: return HopType.Unknown;

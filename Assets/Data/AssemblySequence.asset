@@ -33,8 +33,8 @@ MonoBehaviour:
     settleSeconds: 0.5
     narration: "The motherboard. Its job here is mostly to have enough PCIe lanes."
     labelled: 1
-    label: "Motherboard"
-    detail: "Its PCIe slots link all eight cards to the CPU"
+    label: "ASUS B250 mining board"
+    detail: "Made for mining rigs: 19 PCIe slots"
     labelOffset: {x: 0, y: 0, z: 0}
     labelSeconds: 7
   - stepId: cpu
@@ -283,7 +283,7 @@ MonoBehaviour:
     cardIndex: -1
     travelSeconds: 2.0
     settleSeconds: 0.5
-    narration: "Every card gets its own power. Daisy chaining them is how rigs catch fire."
+    narration: "Every card gets its own power. Eight cards is a power problem first."
     labelled: 1
     label: "PCIe power cables"
     detail: "Each card can draw up to 150 W"

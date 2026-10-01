@@ -101,9 +101,12 @@ namespace OCS.VR.Experience
                     Play(view.nodeMarkers[n].position, 1.3f, seatColor, 0, true);
             }
 
-            if (hop.Type != HopType.Model || !hop.HasGpuTelemetry || rig == null || rig.cards == null) return;
-            if (hop.gpu_index < 0 || hop.gpu_index >= rig.cards.Length || rig.cards[hop.gpu_index] == null) return;
-            Play(rig.cards[hop.gpu_index].position + Vector3.up * 0.06f, 0.6f, cardColor, 50);
+            // When the job reaches the cards: the first GPU stage, not every one after it.
+            if (hop.Type != HopType.Model || hop.tokens_out > 0 || !hop.HasGpuTelemetry || rig == null || rig.cards == null) return;
+            if (hop.gpu_index < 0 || hop.GpuLast >= rig.cards.Length) return;
+            Transform first = rig.cards[hop.gpu_index], last = rig.cards[hop.GpuLast];
+            if (first == null || last == null) return;
+            Play((first.position + last.position) * 0.5f + Vector3.up * 0.06f, 0.45f + 0.15f * hop.GpuCount, cardColor, 25 * hop.GpuCount);
         }
 
         void OnTraceFinished(Trace trace)

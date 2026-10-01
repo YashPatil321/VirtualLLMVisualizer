@@ -14,7 +14,7 @@ public static class RunTests
                                 typeof(OCS.VR.Tests.BeamGlowStateTests), typeof(OCS.VR.Tests.TelemetryTextTests),
                                 typeof(OCS.VR.Tests.TimelineLayoutTests), typeof(OCS.VR.Tests.StageMotionTests),
                                 typeof(OCS.VR.Tests.FlightPathTests), typeof(OCS.VR.Tests.WorldPulseTests),
-                                typeof(OCS.VR.Tests.AnswerTextTests), typeof(OCS.VR.Tests.JourneyTextTests) })
+                                typeof(OCS.VR.Tests.AnswerTextTests), typeof(OCS.VR.Tests.JourneyTextTests), typeof(OCS.VR.Tests.PlaybackPaceTests) })
         {
         Console.WriteLine("-- " + t.Name);
         var inst = Activator.CreateInstance(t);

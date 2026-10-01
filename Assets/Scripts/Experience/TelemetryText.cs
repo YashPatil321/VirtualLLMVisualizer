@@ -15,6 +15,8 @@ namespace OCS.VR.Experience
         /// <summary>"GPU 3 · rig-2"</summary>
         public static string CardHeader(Hop hop)
         {
+            if (hop.GpuCount > 1)
+                return "GPUs " + hop.gpu_index.ToString(Inv) + "–" + hop.GpuLast.ToString(Inv) + "  ·  " + hop.node_id;
             return "GPU " + hop.gpu_index.ToString(Inv) + "  ·  " + hop.node_id;
         }
 
@@ -24,8 +26,20 @@ namespace OCS.VR.Experience
             string s = "";
             if (hop.gpu_util > 0f) s = Join(s, Mathf0(hop.gpu_util) + "% load");
             if (hop.temp_c > 0f) s = Join(s, Mathf0(hop.temp_c) + "°C");
-            if (hop.vram_used_mb > 0f) s = Join(s, (hop.vram_used_mb / 1000f).ToString("0.0", Inv) + " GB VRAM");
+            if (hop.vram_used_mb > 0f)
+                s = Join(s, (hop.vram_used_mb / 1000f).ToString("0.0", Inv) + " GB VRAM" + (hop.GpuCount > 1 ? " each" : ""));
             return s;
+        }
+
+        /// <summary>
+        /// For a model split across cards: "Split 4 ways: every token crosses all 4 cards".
+        /// Empty for one card.
+        /// </summary>
+        public static string SplitLine(Hop hop)
+        {
+            if (hop == null || hop.GpuCount <= 1) return string.Empty;
+            string n = hop.GpuCount.ToString(Inv);
+            return "Split " + n + " ways: every token crosses all " + n + " cards";
         }
 
         /// <summary>"Generating · 42 tokens · 60.5 tok/s"</summary>

@@ -77,15 +77,16 @@ namespace OCS.VR.Experience
         {
             var sb = new StringBuilder("RESPONSE");
             if (trace == null || trace.hops == null) return sb.ToString();
-            int gpu = -1;
+            int gpu = -1, gpuLast = -1;
             string model = null, quant = null;
             foreach (var hop in trace.hops)
             {
-                if (hop.HasGpuTelemetry && gpu < 0) gpu = hop.gpu_index;
+                if (hop.HasGpuTelemetry && gpu < 0) { gpu = hop.gpu_index; gpuLast = hop.GpuLast; }
                 if (string.IsNullOrEmpty(model) && !string.IsNullOrEmpty(hop.model)) model = hop.model;
                 if (string.IsNullOrEmpty(quant) && !string.IsNullOrEmpty(hop.quantization)) quant = hop.quantization;
             }
-            if (gpu >= 0) sb.Append("  ·  GPU ").Append(gpu);
+            if (gpu >= 0 && gpuLast > gpu) sb.Append("  ·  GPUs ").Append(gpu).Append('–').Append(gpuLast);
+            else if (gpu >= 0) sb.Append("  ·  GPU ").Append(gpu);
             if (!string.IsNullOrEmpty(model))
             {
                 sb.Append("  ·  ").Append(model);

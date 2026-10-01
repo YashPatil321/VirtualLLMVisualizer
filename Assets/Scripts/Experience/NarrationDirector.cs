@@ -59,14 +59,22 @@ namespace OCS.VR.Experience
         {
             if (sequencer != null) sequencer.ActStarted += OnActStarted;
             if (assemblyPlayer != null) assemblyPlayer.StepStarted += OnStepStarted;
-            if (tracePlayer != null) tracePlayer.HopStarted += OnHopStarted;
+            if (tracePlayer != null)
+            {
+                tracePlayer.HopStarted += OnHopStarted;
+                tracePlayer.TraceStarted += OnTraceStarted;
+            }
         }
 
         void OnDisable()
         {
             if (sequencer != null) sequencer.ActStarted -= OnActStarted;
             if (assemblyPlayer != null) assemblyPlayer.StepStarted -= OnStepStarted;
-            if (tracePlayer != null) tracePlayer.HopStarted -= OnHopStarted;
+            if (tracePlayer != null)
+            {
+                tracePlayer.HopStarted -= OnHopStarted;
+                tracePlayer.TraceStarted -= OnTraceStarted;
+            }
         }
 
         void Start()
@@ -102,12 +110,26 @@ namespace OCS.VR.Experience
             Show(NarrationTrack.StepCue(step.stepId));
         }
 
+        // A request comes back the way it went. Each kind of hop is narrated the first time
+        // the request reaches it, so the way back doesn't repeat "the broker signs you in".
+        bool[] _hopNarrated;
+
+        void OnTraceStarted(Trace trace)
+        {
+            if (_hopNarrated != null)
+                for (int i = 0; i < _hopNarrated.Length; i++) _hopNarrated[i] = false;
+        }
+
         void OnHopStarted(Hop hop)
         {
             if (!narrateHops || hop == null) return;
 
             int i = (int)hop.Type;
-            Show(i >= 0 && i < _hopCues.Length ? _hopCues[i] : null);
+            if (i < 0 || i >= _hopCues.Length) return;
+            if (_hopNarrated == null) _hopNarrated = new bool[_hopCues.Length];
+            if (_hopNarrated[i]) return;
+            _hopNarrated[i] = true;
+            Show(_hopCues[i]);
         }
 
         void Show(string cue)

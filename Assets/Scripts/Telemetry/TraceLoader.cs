@@ -89,9 +89,9 @@ namespace OCS.VR.Telemetry
                     Debug.LogWarning($"[TraceLoader] Rig hop {i} on {h.node_id} has no gpu_index. No card will light for it.");
                 }
 
-                if (h.gpu_index >= 0 && h.gpu_index > 7)
+                if (h.gpu_index >= 0 && h.GpuLast > 7)
                 {
-                    error = $"Hop {i} references gpu_index {h.gpu_index}. The rig has 8 cards, 0 to 7.";
+                    error = $"Hop {i} runs on GPUs {h.gpu_index} to {h.GpuLast}. The rig has 8 cards, 0 to 7.";
                     return false;
                 }
             }

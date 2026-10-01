@@ -55,6 +55,7 @@ namespace UnityEngine
         public static float Clamp(float v, float lo, float hi) => v < lo ? lo : (v > hi ? hi : v);
         public static int Max(int a, int b) => a > b ? a : b;
         public static float Max(float a, float b) => a > b ? a : b;
+        public static float Floor(float v) => (float)Math.Floor(v);
         public static float Lerp(float a, float b, float t) => a + (b - a) * Clamp01(t);
         public static float Abs(float v) => v < 0f ? -v : v;
     }

@@ -29,6 +29,17 @@ namespace OCS.VR.Telemetry
         [Tooltip("Seconds to hold on the final hop before finishing.")]
         public float tailHold = 1.5f;
 
+        [Tooltip("Every hop stays on screen at least this long, so the network hops, which " +
+                 "really take milliseconds, can be followed. Long hops (the GPU) are unaffected. " +
+                 "0 plays the trace straight.")]
+        public float minHopSeconds = 1.8f;
+
+        [Tooltip("The same, once the GPU has done its work: the way back is the way in, so it " +
+                 "can go quicker.")]
+        public float minHopSecondsAfterGpu = 0.6f;
+
+        bool _gpuStarted;
+
         public event Action<Hop> HopStarted;
         public event Action<Hop> HopEnded;
         public event Action<Trace> TraceStarted;
@@ -100,6 +111,7 @@ namespace OCS.VR.Telemetry
         {
             _elapsedMs = 0f;
             _nextIndex = 0;
+            _gpuStarted = false;
             EndAllActive();
         }
 
@@ -107,13 +119,20 @@ namespace OCS.VR.Telemetry
         {
             if (!_playing) return;
 
-            _elapsedMs += Time.deltaTime * 1000f * timeScale;
+            float min = _gpuStarted ? minHopSecondsAfterGpu : minHopSeconds;
+            float next = _elapsedMs + Time.deltaTime * PlaybackPace.MsPerSecond(_active, timeScale, min);
+            // Stop at the next hop's start rather than jumping past it: a 5 ms hop would
+            // otherwise start and end inside one frame and never be slowed.
+            if (min > 0f && _nextIndex < _hops.Count && _hops[_nextIndex].t_start_ms < next)
+                next = Mathf.Max(_elapsedMs, _hops[_nextIndex].t_start_ms);
+            _elapsedMs = next;
 
             // Start any hop whose window has opened.
             while (_nextIndex < _hops.Count && _hops[_nextIndex].t_start_ms <= _elapsedMs)
             {
                 Hop h = _hops[_nextIndex];
                 _active.Add(h);
+                if (h.Type == HopType.Model) _gpuStarted = true;
                 HopStarted?.Invoke(h);
                 _nextIndex++;
             }

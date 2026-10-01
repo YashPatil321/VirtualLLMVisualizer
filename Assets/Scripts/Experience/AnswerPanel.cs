@@ -38,7 +38,8 @@ namespace OCS.VR.Experience
             _model = null;
             if (trace.hops != null)
                 for (int i = 0; i < trace.hops.Count; i++)
-                    if (trace.hops[i].Type == HopType.Model) { _model = trace.hops[i]; break; }
+                    // The generating hop, not the prefill before it: the one with tokens.
+                    if (trace.hops[i].Type == HopType.Model && trace.hops[i].tokens_out > 0) { _model = trace.hops[i]; break; }
 
             if (prompt != null) prompt.text = AnswerText.Wrap(trace.prompt_preview, charsPerLine);
             if (responseHeading != null) responseHeading.text = AnswerText.ResponseHeading(trace);

@@ -34,11 +34,11 @@ public static class Sim
 
         Time.deltaTime = 1f / 72f;
         var samples = new List<(float ms, float load)>();
-        for (int f = 0; f < 72 * 12; f++)
+        for (int f = 0; f < 72 * 120; f++)
         {
             Call(player, "Update");
             Call(disp, "Update");
-            samples.Add((player.ElapsedMs, disp.LoadOf(3)));
+            samples.Add((player.ElapsedMs, disp.LoadOf(0)));   // GPU 0, first card of the replica
             if (!player.IsPlaying && f > 10) break;
         }
 
@@ -46,17 +46,17 @@ public static class Sim
         foreach (var s in samples)
         {
             if (s.load > peakOverall) peakOverall = s.load;
-            if (s.ms >= 200f && s.ms <= 3100f && s.load > peakDuringGen) peakDuringGen = s.load;
+            if (s.ms >= 2300f && s.ms <= 9900f && s.load > peakDuringGen) peakDuringGen = s.load;
         }
-        Console.WriteLine($"  peak load on card 3, whole trace      : {peakOverall:F3}");
-        Console.WriteLine($"  peak load on card 3, DURING generation: {peakDuringGen:F3}   (82-3154ms, the 3s the card is working)");
-        for (float probe = 0; probe <= 3400; probe += 400)
+        Console.WriteLine($"  peak load on GPU 0, whole trace      : {peakOverall:F3}");
+        Console.WriteLine($"  peak load on GPU 0, DURING generation: {peakDuringGen:F3}   (2131-9965 ms, generating)");
+        for (float probe = 0; probe <= 10400; probe += 800)
         {
             float best = 0f; foreach (var s in samples) if (Math.Abs(s.ms - probe) < 20f && s.load > best) best = s.load;
-            Console.WriteLine($"    t={probe,5:F0}ms  card3 load={best:F3}");
+            Console.WriteLine($"    t={probe,5:F0}ms  GPU 0 load={best:F3}");
         }
         if (peakDuringGen < 0.5f)
-        { Console.WriteLine("  >>> BUG: card 3 is DARK during the generation it is supposed to be lit for."); problems++; }
+        { Console.WriteLine("  >>> BUG: GPU 0 is DARK during the generation it is supposed to be lit for."); problems++; }
 
         // ---------- SIM 2: sequencer act arc ----------
         Console.WriteLine("\n=== SIM 2: five-act arc ===");

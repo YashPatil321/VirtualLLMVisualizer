@@ -29,7 +29,7 @@ namespace OCS.VR.Experience
 
         Act _act = Act.None;
         float _actStart;
-        bool _generating;
+        int _modelHops;       // prefill and generating can overlap by a frame
         float _ripple;
 
         void OnEnable()
@@ -64,15 +64,15 @@ namespace OCS.VR.Experience
 
         void OnHopStarted(Hop hop)
         {
-            if (hop.Type == HopType.Model) _generating = true;
+            if (hop.Type == HopType.Model) _modelHops++;
         }
 
         void OnHopEnded(Hop hop)
         {
-            if (hop.Type == HopType.Model) _generating = false;
+            if (hop.Type == HopType.Model && _modelHops > 0) _modelHops--;
         }
 
-        void OnTrace(Trace trace) => _generating = false;
+        void OnTrace(Trace trace) => _modelHops = 0;
 
         void Start() => Apply(0f);
 
@@ -82,7 +82,7 @@ namespace OCS.VR.Experience
         {
             float radius, strength, wake;
             WorldPulse.Evaluate(_act, Time.time - _actStart, out radius, out strength, out wake);
-            _ripple = CardVisualMath.Approach(_ripple, _generating ? 1f : 0f, rippleRate * dt);
+            _ripple = CardVisualMath.Approach(_ripple, _modelHops > 0 ? 1f : 0f, rippleRate * dt);
 
             Vector3 c = centre != null ? centre.position : Vector3.zero;
             Shader.SetGlobalVector(CentreId, new Vector4(c.x, c.y, c.z, 0f));

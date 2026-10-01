@@ -44,18 +44,23 @@ namespace OCS.VR.Experience
 
         void OnTraceStarted(Trace trace)
         {
+            _generating = null;
             SetRate(0f);
             if (tokens != null) tokens.Clear();
         }
 
+        Hop _generating;
+
         void OnHopStarted(Hop hop)
         {
-            if (hop.Type != HopType.Model || !hop.HasGpuTelemetry || tokens == null || target == null) return;
-            if (rig == null || rig.cards == null || hop.gpu_index < 0 || hop.gpu_index >= rig.cards.Length) return;
-            Transform card = rig.cards[hop.gpu_index];
-            if (card == null) return;
+            // Only the generating stage streams tokens; the prefill before it reads the prompt.
+            if (hop.Type != HopType.Model || hop.tokens_out <= 0 || !hop.HasGpuTelemetry || tokens == null || target == null) return;
+            if (rig == null || rig.cards == null || hop.gpu_index < 0 || hop.GpuLast >= rig.cards.Length) return;
+            Transform first = rig.cards[hop.gpu_index], last = rig.cards[hop.GpuLast];
+            if (first == null || last == null) return;
+            _generating = hop;
 
-            Vector3 from = card.position + Vector3.up * 0.07f;
+            Vector3 from = (first.position + last.position) * 0.5f + Vector3.up * 0.07f;
             Vector3 dir = target.position - from;
             tokens.transform.position = from;
             tokens.transform.rotation = Quaternion.LookRotation(dir);
@@ -71,7 +76,11 @@ namespace OCS.VR.Experience
 
         void OnHopEnded(Hop hop)
         {
-            if (hop.Type == HopType.Model) SetRate(0f);
+            // Hops start before others end in the same frame, so only the hop that
+            // started the stream may stop it.
+            if (hop != _generating) return;
+            _generating = null;
+            SetRate(0f);
         }
 
         void SetRate(float perSecond)

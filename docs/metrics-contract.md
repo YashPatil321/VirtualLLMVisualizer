@@ -24,8 +24,8 @@ A trace is one request, start to finish, as an ordered list of hops.
 
 | Field | Type | Required | Meaning |
 |---|---|:---:|---|
-| `hop` | string | yes | One of `client`, `broker`, `scheduler`, `rig`, `model` |
-| `node_id` | string | yes | Which node, e.g. `ocs-broker`, `rig-2` |
+| `hop` | string | yes | One of `client`, `relay`, `broker`, `registry` (or `store`, `redis`, `rds`), `scheduler`, `network` (or `netbird`), `rig`, `prefill`, `model` |
+| `node_id` | string | yes | Which node: `web-client`, `aws-relay`, `ocs-broker`, `redis`, `rds`, `netbird`, `rig-1`, `rig-2` |
 | `t_start_ms` | number | yes | Milliseconds from trace start |
 | `t_end_ms` | number | yes | Milliseconds from trace start |
 | `status` | string | yes | `ok`, `queued`, `failed` |
@@ -35,14 +35,19 @@ A trace is one request, start to finish, as an ordered list of hops.
 
 | Field | Type | Meaning |
 |---|---|---|
-| `gpu_index` | int | Which of the 8 cards, 0 indexed |
+| `gpu_index` | int | Which of the 8 cards, 0 indexed. For a model split across cards, the first one |
+| `gpu_count` | int | Optional, default 1. How many cards from `gpu_index` up the replica spans |
 | `gpu_util` | number | Percent, 0 to 100 |
 | `vram_used_mb` | number | Megabytes |
 | `temp_c` | number | Celsius |
 | `model` | string | Model name |
 | `quantization` | string | e.g. `Q4_K_M` |
 
-## Model hops only
+## Prefill and model hops
+
+`prefill` is the rig reading the prompt before the first token (the warm start TTFT);
+`model` is generation. Both carry `gpu_index` and `gpu_count`; only `model` carries
+tokens.
 
 | Field | Type | Meaning |
 |---|---|---|
@@ -50,6 +55,14 @@ A trace is one request, start to finish, as an ordered list of hops.
 | `tokens_per_sec` | number | Throughput |
 
 ---
+
+## The path, as the VR draws it
+
+From the OCS Intelligence architecture (week 1 deck, slide 9): student browser, AWS relay
+(NGINX + TLS), FastAPI broker (auth, queue, scheduling) with Redis (live registry, queues,
+locks) and RDS (users, sessions, history), NetBird private overlay, llama-server on a rig.
+Tokens stream back the same way. `Assets/Data/sample-trace.json` is a hand written trace of
+that target path; live today the path is Open WebUI to Ollama over NetBird.
 
 ## Notes for Anvay
 

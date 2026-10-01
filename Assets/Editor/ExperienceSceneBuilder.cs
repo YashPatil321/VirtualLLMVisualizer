@@ -271,7 +271,11 @@ namespace OCS.VR.EditorTools
             TracePlayer player = experience.AddComponent<TracePlayer>();
             player.traceAsset = trace;
             player.playOnStart = false;      // the sequencer owns when it plays
-            player.timeScale = 0.5f;
+            // The GPU work plays in real time; the network hops, which really take
+            // milliseconds, are stretched so they can be followed (minHopSeconds).
+            player.timeScale = 1f;
+            player.minHopSeconds = 1.8f;
+            player.minHopSecondsAfterGpu = 0.6f;
             player.tailHold = 1.5f;
 
             RigCardDisplay cardDisplay = rigRoot.AddComponent<RigCardDisplay>();
@@ -368,6 +372,8 @@ namespace OCS.VR.EditorTools
             hopCaptions.player = player;
             hopCaptions.graph = graph;
             hopCaptions.captions = captions;
+
+            BuildZoneLabels(systemView.transform, graph);
 
             // ---------- how the software works ----------
             BuildBeams(trace, graph, systemView, sysView, cardDisplay, player);
@@ -648,12 +654,15 @@ namespace OCS.VR.EditorTools
                 BeamGlowState.EdgesFromRoute(route, from, to);
             }
 
-            // The rigs the scheduler could have picked and didn't get a faint link too, so
-            // "least busy rig selected" has something to have been chosen over. Nothing
-            // ever travels it, so it never lights.
+            // The rigs that weren't picked get a faint link from the private network too, so
+            // the choice has something to have been made over. Nothing ever travels it, so
+            // it never lights. (From the scheduler node, on graphs that still have one.)
             int scheduler = -1;
             for (int i = 0; i < graph.NodeCount; i++)
-                if (graph.nodes[i].hopType == HopType.Scheduler) scheduler = i;
+                if (graph.nodes[i].hopType == HopType.Network) scheduler = i;
+            if (scheduler < 0)
+                for (int i = 0; i < graph.NodeCount; i++)
+                    if (graph.nodes[i].hopType == HopType.Scheduler) scheduler = i;
             if (scheduler >= 0)
             {
                 for (int i = 0; i < graph.NodeCount; i++)
@@ -701,6 +710,49 @@ namespace OCS.VR.EditorTools
             // system view until power on, so the halo must not start out lit.
             beams.cardHalo.enabled = false;
             beams.haloSize = 0.7f;
+
+            // A light running along the replica's cards once per token while it generates.
+            GameObject chase = GlowQuad("Token Chase", null, Vector3.zero, Vector3.one, "GlowBlob");
+            chase.AddComponent<FaceCamera>().tilt = true;
+            beams.chase = chase.GetComponent<Renderer>();
+            beams.chase.enabled = false;            // off until a split model generates
+        }
+
+        /// <summary>
+        /// Small headings over the parts of the diagram, as on the architecture slide: the
+        /// cloud edge on AWS and the private network. Each sits above the
+        /// highest node of its group; groups with no nodes get no heading.
+        /// </summary>
+        static void BuildZoneLabels(Transform systemView, SystemGraph graph)
+        {
+            var zones = new[]
+            {
+                (title: "CLOUD EDGE  ·  AWS EC2", types: new[] { HopType.Relay, HopType.Broker, HopType.Store }),
+                (title: "PRIVATE NETWORK", types: new[] { HopType.Network }),
+                // No heading for the compute: Rig 2's panel sits right over the rig and says
+                // what it is, and a heading there crowds the sign on the far wall.
+            };
+            foreach (var zone in zones)
+            {
+                bool any = false;
+                Vector3 sum = Vector3.zero;
+                float top = float.MinValue;
+                int n = 0;
+                for (int i = 0; i < graph.NodeCount; i++)
+                {
+                    if (System.Array.IndexOf(zone.types, graph.nodes[i].hopType) < 0) continue;
+                    any = true;
+                    sum += graph.nodes[i].position;
+                    n++;
+                    top = Mathf.Max(top, graph.nodes[i].position.y);
+                }
+                if (!any) continue;
+                Vector3 local = sum / n;
+                local.y = top + PanelSize.y * ViewScale / 2f + 0.14f;
+                TextMesh label = Text("Zone " + zone.title, systemView, local, 0.06f, TextAnchor.LowerCenter,
+                                      new Color(Amber.r, Amber.g, Amber.b) * 0.9f, zone.title);
+                label.transform.rotation = FacingViewer(label.transform.position);
+            }
         }
 
         /// <summary>The readout beside whichever card is working.</summary>
@@ -758,15 +810,16 @@ namespace OCS.VR.EditorTools
         // sides on purpose: the viewer turns to read them, and they never cover the rig.
         static readonly Vector3 FactsBoardPosition = new Vector3(-1.55f, 1.55f, 0.45f);
         static readonly Vector3 JourneyBoardPosition = new Vector3(1.55f, 1.55f, 0.45f);
-        const float InfoBoardHeight = 0.5f;
+        const float FactsBoardHeight = 0.6f;
+        const float JourneyBoardHeight = 0.7f;
 
         /// <summary>A dark board facing the viewer, lit along the top, with a title.</summary>
-        static GameObject Board(string name, Vector3 position, float w, string title, Color titleColour)
+        static GameObject Board(string name, Vector3 position, float w, float h, string title, Color titleColour)
         {
             GameObject root = new GameObject(name);
             root.transform.position = position;
             root.transform.rotation = FacingViewer(position);
-            float h = InfoBoardHeight, front = -0.008f;
+            float front = -0.008f;
             Child(root, "Panel", PrimitiveType.Cube, Vector3.zero, new Vector3(w, h, 0.01f), "NodePanel");
             Child(root, "Top Edge", PrimitiveType.Cube, new Vector3(0f, h / 2f - 0.003f, front), new Vector3(w, 0.006f, 0.003f), "NodeAccentLit");
             GlowQuad("Top Glow", root.transform, new Vector3(0f, h / 2f, front - 0.002f), new Vector3(w * 1.1f, 0.12f, 1f), "GlowBeamSoft");
@@ -779,9 +832,9 @@ namespace OCS.VR.EditorTools
         static GameObject BuildFactsBoard(InfoBoard facts)
         {
             const float w = 1.05f;
-            GameObject root = Board("Rig Facts Board", FactsBoardPosition, w, facts.title, new Color(Cyan.r, Cyan.g, Cyan.b));
+            GameObject root = Board("Rig Facts Board", FactsBoardPosition, w, FactsBoardHeight, facts.title, new Color(Cyan.r, Cyan.g, Cyan.b));
             string body = facts.lines != null ? string.Join("\n", facts.lines) : string.Empty;
-            Text("Facts", root.transform, new Vector3(-w / 2f + 0.05f, InfoBoardHeight / 2f - 0.1f, -0.008f), 0.042f,
+            Text("Facts", root.transform, new Vector3(-w / 2f + 0.05f, FactsBoardHeight / 2f - 0.1f, -0.008f), 0.04f,
                  TextAnchor.UpperLeft, TextColour, body);
             return root;
         }
@@ -790,9 +843,9 @@ namespace OCS.VR.EditorTools
         static GameObject BuildJourneyBoard(TracePlayer player, SystemGraph graph)
         {
             const float w = 1.15f;
-            GameObject root = Board("Request Journey Board", JourneyBoardPosition, w, "HOW A REQUEST FLOWS", Amber);
-            TextMesh body = Text("Steps", root.transform, new Vector3(-w / 2f + 0.05f, InfoBoardHeight / 2f - 0.1f, -0.008f),
-                                 0.032f, TextAnchor.UpperLeft, Color.white);
+            GameObject root = Board("Request Journey Board", JourneyBoardPosition, w, JourneyBoardHeight, "HOW A REQUEST FLOWS", Amber);
+            TextMesh body = Text("Steps", root.transform, new Vector3(-w / 2f + 0.05f, JourneyBoardHeight / 2f - 0.1f, -0.008f),
+                                 0.03f, TextAnchor.UpperLeft, Color.white);
             JourneyBoard board = root.AddComponent<JourneyBoard>();
             board.player = player;
             board.graph = graph;
@@ -907,13 +960,16 @@ namespace OCS.VR.EditorTools
                  "Routing, scheduling, network  " + TelemetryText.Duration(total - generating) +
                  "  (" + JourneyText.Percent(total - generating, total) + ")");
             Text("Generating", timelineRoot.transform, new Vector3(-x0, -0.012f, 0f), DashboardCaptionHeight,
-                 TextAnchor.UpperRight, Amber, "GPU generating  " + TelemetryText.Duration(generating) +
+                 TextAnchor.UpperRight, Amber, "On the GPUs  " + TelemetryText.Duration(generating) +
                  "  (" + JourneyText.Percent(generating, total) + ")");
-            // Honest about the clock: the replay runs slower than the real request did.
-            string speed = Mathf.Approximately(player.timeScale, 0.5f) ? "half speed"
-                         : player.timeScale.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + "× speed";
+            // Honest about the clock: say how the replay differs from the real request.
+            string note = player.minHopSeconds > 0f
+                ? "Real timings. The network hops are slowed so you can follow them; the GPU part is "
+                  + (Mathf.Approximately(player.timeScale, 1f) ? "real time" : player.timeScale.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + "× speed")
+                : "Real timings from the trace, replayed at "
+                  + player.timeScale.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + "× speed";
             Text("Replay Note", timelineRoot.transform, new Vector3(0f, -0.04f, 0f), DashboardCaptionHeight * 0.85f,
-                 TextAnchor.UpperCenter, CaptionColour, "Real timings from the trace, replayed at " + speed);
+                 TextAnchor.UpperCenter, CaptionColour, note);
 
             RequestTimeline timeline = timelineRoot.AddComponent<RequestTimeline>();
             timeline.player = player;

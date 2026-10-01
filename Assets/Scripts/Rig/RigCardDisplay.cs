@@ -85,13 +85,14 @@ namespace OCS.VR.Rig
             // so fall back to fully loaded rather than showing an idle card
             // while it is visibly the one doing the work.
             float load = hop.gpu_util > 0f ? hop.gpu_util / 100f : 1f;
-            _state.HopStarted(hop.gpu_index, load);
+            // A replica: every card it is split across works together.
+            for (int c = hop.gpu_index; c <= hop.GpuLast; c++) _state.HopStarted(c, load);
         }
 
         void OnHopEnded(Hop hop)
         {
             if (!hop.HasGpuTelemetry) return;
-            _state.HopEnded(hop.gpu_index);
+            for (int c = hop.gpu_index; c <= hop.GpuLast; c++) _state.HopEnded(c);
         }
 
         void OnTraceStarted(Trace trace) => _state.ResetAll();

@@ -8,7 +8,9 @@ A VR experience for Meta Quest that shows how our OCS LLM infrastructure works: 
 
 This is an **experience**, not a tutorial. There is no quiz, no gating, no scoring. The viewer watches and looks around. Pacing and clarity matter more than interactivity.
 
-Part of the CSH / OCS Intelligence Infrastructure project. Teammates Yash Parikh and Anvay Vahia own the broker and control plane. There are no Mac Minis in the path: the scheduler sends requests straight to a GPU rig. I own the GPU rigs and this VR layer.
+Part of the CSH / OCS Intelligence Infrastructure project. Teammates Yash Parikh and Anvay Vahia own the broker and control plane. I own the GPU rigs and this VR layer.
+
+How the system works, from the week 1 deck: a student's browser → AWS relay (EC2, NGINX + TLS) → FastAPI broker (auth, queue, scheduling; Redis for the live worker registry, RDS for users and history) → NetBird private overlay → llama-server on a GPU rig. Tokens stream back the same way. There are no Mac Minis. The model is Qwen3.8 27B, GGUF Q4_K_M, split across several 1070s per replica over PCIe (no NVLink). Rig 1 is production, Rig 2 is dev & test. About 12 tokens/s today, target 60+; warm start about 2 s, cold start 2 min 27 s. Live today the path is Open WebUI to Ollama over NetBird; the broker, Redis and RDS are being built. The VR shows the target path and says so.
 
 ## Hard constraints
 
@@ -82,6 +84,9 @@ Telemetry
 - `Telemetry/TraceData.cs` — Trace and Hop types
 - `Telemetry/TraceLoader.cs` — parse, sort, validate
 - `Telemetry/TracePlayer.cs` — playback, raises HopStarted / HopEnded
+- `Telemetry/PlaybackPace.cs` — gives every hop a minimum time on screen, so the network
+  hops (milliseconds in reality) can be followed while the GPU part plays in real time.
+  A hop can span several cards (`gpu_count`): a model replica
 
 Rig
 - `Rig/RigLayout.cs` — card slot positions as data
@@ -159,11 +164,14 @@ between that script, `RigLayout.asset` and the builder; change them together.
 
 Data, in `Assets/Data/`
 - `RigLayout.asset`, `AssemblySequence.asset` (23 steps), `SystemGraph.asset`
-  (5 nodes), `NarrationTrack.asset` (11 lines), `RigFacts.asset`, `sample-trace.json`
+  (8 nodes: student, AWS relay, broker, Redis, RDS, NetBird, Rig 2, Rig 1),
+  `NarrationTrack.asset` (14 lines), `RigFacts.asset`, `sample-trace.json` (15 hops on the
+  target path, the model on GPUs 0 to 3)
 
 Tests in `Assets/Tests/EditMode/` cover the loader, card lighting, the assembly
 timeline, hop routing, narration cues, beam glow, readout text, timeline layout,
-stage timing, flight paths, the power on wave, the answer text and the journey board.
+stage timing, flight paths, the power on wave, the answer text, the journey board and
+playback pacing.
 `tools/headless-tests/` also compiles the shaders' HLSL with glslang when it is
 installed; that catches syntax errors, not how they look.
 
