@@ -22,8 +22,9 @@ MonoBehaviour:
     narration: "An open frame. Eight cards need airflow more than they need a case."
     labelled: 1
     label: "Open-air frame"
+    detail: "Two levels: cards on top, board and power below"
     labelOffset: {x: -0.42, y: 0.18, z: -0.22}
-    labelSeconds: 5
+    labelSeconds: 7
   - stepId: motherboard
     partName: "Motherboard"
     kind: 1
@@ -32,9 +33,10 @@ MonoBehaviour:
     settleSeconds: 0.5
     narration: "The motherboard. Its job here is mostly to have enough PCIe lanes."
     labelled: 1
-    label: ""
+    label: "Motherboard"
+    detail: "Its PCIe slots link all eight cards to the CPU"
     labelOffset: {x: 0, y: 0, z: 0}
-    labelSeconds: 5
+    labelSeconds: 7
   - stepId: cpu
     partName: "CPU"
     kind: 2
@@ -43,9 +45,10 @@ MonoBehaviour:
     settleSeconds: 0.4
     narration: "The CPU barely works during inference. The cards do that."
     labelled: 1
-    label: ""
+    label: "CPU and cooler"
+    detail: "Hands work to the cards, then mostly waits"
     labelOffset: {x: 0, y: 0, z: 0}
-    labelSeconds: 5
+    labelSeconds: 7
   - stepId: ram
     partName: "System RAM"
     kind: 3
@@ -54,9 +57,10 @@ MonoBehaviour:
     settleSeconds: 0.4
     narration: "System memory holds the model while it is on its way to the cards."
     labelled: 1
-    label: ""
+    label: "System RAM"
+    detail: "Models pass through here on their way to VRAM"
     labelOffset: {x: 0, y: 0, z: 0}
-    labelSeconds: 5
+    labelSeconds: 7
   - stepId: psu
     partName: "Power supply 1"
     kind: 4
@@ -65,9 +69,10 @@ MonoBehaviour:
     settleSeconds: 0.6
     narration: "Eight cards is a lot of power. This is the part people underestimate."
     labelled: 1
-    label: "Antec 1300 W"
+    label: "Antec HCP 1300 W"
+    detail: "80 PLUS Platinum: little power lost as heat"
     labelOffset: {x: -0.3, y: 0.06, z: 0}
-    labelSeconds: 5
+    labelSeconds: 7
   - stepId: psu-2
     partName: "Power supply 2"
     kind: 4
@@ -76,9 +81,10 @@ MonoBehaviour:
     settleSeconds: 0.6
     narration: "So Rig 2 has two of them, thirteen hundred watts each."
     labelled: 1
-    label: "Antec 1300 W"
+    label: "Antec HCP 1300 W"
+    detail: "Two supplies: 2,600 W between them"
     labelOffset: {x: 0.3, y: 0.06, z: 0}
-    labelSeconds: 5
+    labelSeconds: 7
   - stepId: riser-0
     partName: "Riser 0"
     kind: 5
@@ -88,8 +94,9 @@ MonoBehaviour:
     narration: "A riser lifts the card off the board so eight of them fit."
     labelled: 1
     label: "PCIe risers (8)"
+    detail: "The blue cable isn't USB: it carries one PCIe lane"
     labelOffset: {x: 0, y: 0, z: 0}
-    labelSeconds: 5
+    labelSeconds: 7
   - stepId: riser-1
     partName: "Riser 1"
     kind: 5
@@ -99,6 +106,7 @@ MonoBehaviour:
     narration: ""
     labelled: 0
     label: ""
+    detail: ""
     labelOffset: {x: 0, y: 0, z: 0}
     labelSeconds: 5
   - stepId: riser-2
@@ -110,6 +118,7 @@ MonoBehaviour:
     narration: ""
     labelled: 0
     label: ""
+    detail: ""
     labelOffset: {x: 0, y: 0, z: 0}
     labelSeconds: 5
   - stepId: riser-3
@@ -121,6 +130,7 @@ MonoBehaviour:
     narration: ""
     labelled: 0
     label: ""
+    detail: ""
     labelOffset: {x: 0, y: 0, z: 0}
     labelSeconds: 5
   - stepId: riser-4
@@ -132,6 +142,7 @@ MonoBehaviour:
     narration: ""
     labelled: 0
     label: ""
+    detail: ""
     labelOffset: {x: 0, y: 0, z: 0}
     labelSeconds: 5
   - stepId: riser-5
@@ -143,6 +154,7 @@ MonoBehaviour:
     narration: ""
     labelled: 0
     label: ""
+    detail: ""
     labelOffset: {x: 0, y: 0, z: 0}
     labelSeconds: 5
   - stepId: riser-6
@@ -154,6 +166,7 @@ MonoBehaviour:
     narration: ""
     labelled: 0
     label: ""
+    detail: ""
     labelOffset: {x: 0, y: 0, z: 0}
     labelSeconds: 5
   - stepId: riser-7
@@ -165,6 +178,7 @@ MonoBehaviour:
     narration: ""
     labelled: 0
     label: ""
+    detail: ""
     labelOffset: {x: 0, y: 0, z: 0}
     labelSeconds: 5
   - stepId: gpu-0
@@ -175,9 +189,10 @@ MonoBehaviour:
     settleSeconds: 0.5
     narration: "First card in. Eight gigabytes of VRAM, and seven more to go."
     labelled: 1
-    label: "GPU 0"
+    label: "GPU 0  ·  GTX 1070"
+    detail: "8 GB GDDR5  ·  1,920 CUDA cores  ·  150 W"
     labelOffset: {x: 0, y: 0, z: 0}
-    labelSeconds: 5
+    labelSeconds: 7
   - stepId: gpu-1
     partName: "GTX 1070, card 1"
     kind: 6
@@ -187,6 +202,7 @@ MonoBehaviour:
     narration: ""
     labelled: 1
     label: "GPU 1"
+    detail: ""
     labelOffset: {x: 0, y: 0, z: 0}
     labelSeconds: 5
   - stepId: gpu-2
@@ -198,6 +214,7 @@ MonoBehaviour:
     narration: ""
     labelled: 1
     label: "GPU 2"
+    detail: ""
     labelOffset: {x: 0, y: 0, z: 0}
     labelSeconds: 5
   - stepId: gpu-3
@@ -209,6 +226,7 @@ MonoBehaviour:
     narration: ""
     labelled: 1
     label: "GPU 3"
+    detail: ""
     labelOffset: {x: 0, y: 0, z: 0}
     labelSeconds: 5
   - stepId: gpu-4
@@ -220,6 +238,7 @@ MonoBehaviour:
     narration: ""
     labelled: 1
     label: "GPU 4"
+    detail: ""
     labelOffset: {x: 0, y: 0, z: 0}
     labelSeconds: 5
   - stepId: gpu-5
@@ -231,6 +250,7 @@ MonoBehaviour:
     narration: ""
     labelled: 1
     label: "GPU 5"
+    detail: ""
     labelOffset: {x: 0, y: 0, z: 0}
     labelSeconds: 5
   - stepId: gpu-6
@@ -242,6 +262,7 @@ MonoBehaviour:
     narration: ""
     labelled: 1
     label: "GPU 6"
+    detail: ""
     labelOffset: {x: 0, y: 0, z: 0}
     labelSeconds: 5
   - stepId: gpu-7
@@ -250,11 +271,12 @@ MonoBehaviour:
     cardIndex: 7
     travelSeconds: 1.6
     settleSeconds: 0.5
-    narration: "That is all eight. Together they hold a model no single card could."
+    narration: "That is all eight. Sixty-four gigabytes of VRAM between them."
     labelled: 1
     label: "GPU 7"
+    detail: "Eight cards: 64 GB of VRAM, 15,360 CUDA cores"
     labelOffset: {x: 0, y: 0, z: 0}
-    labelSeconds: 5
+    labelSeconds: 7
   - stepId: pcie-power
     partName: "PCIe power"
     kind: 7
@@ -264,6 +286,7 @@ MonoBehaviour:
     narration: "Every card gets its own power. Daisy chaining them is how rigs catch fire."
     labelled: 1
     label: "PCIe power cables"
+    detail: "Each card can draw up to 150 W"
     labelOffset: {x: 0, y: 0, z: 0}
-    labelSeconds: 5
+    labelSeconds: 7
   gapSeconds: 0.25

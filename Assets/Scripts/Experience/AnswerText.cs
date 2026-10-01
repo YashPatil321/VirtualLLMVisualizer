@@ -69,6 +69,31 @@ namespace OCS.VR.Experience
             return n > wordCount ? wordCount : n;
         }
 
+        /// <summary>
+        /// The heading over the response: which card wrote it and with what model, as the
+        /// trace reports them. "RESPONSE  ·  GPU 3  ·  placeholder-7b, Q4_K_M".
+        /// </summary>
+        public static string ResponseHeading(OCS.VR.Telemetry.Trace trace)
+        {
+            var sb = new StringBuilder("RESPONSE");
+            if (trace == null || trace.hops == null) return sb.ToString();
+            int gpu = -1;
+            string model = null, quant = null;
+            foreach (var hop in trace.hops)
+            {
+                if (hop.HasGpuTelemetry && gpu < 0) gpu = hop.gpu_index;
+                if (string.IsNullOrEmpty(model) && !string.IsNullOrEmpty(hop.model)) model = hop.model;
+                if (string.IsNullOrEmpty(quant) && !string.IsNullOrEmpty(hop.quantization)) quant = hop.quantization;
+            }
+            if (gpu >= 0) sb.Append("  ·  GPU ").Append(gpu);
+            if (!string.IsNullOrEmpty(model))
+            {
+                sb.Append("  ·  ").Append(model);
+                if (!string.IsNullOrEmpty(quant)) sb.Append(", ").Append(quant);
+            }
+            return sb.ToString();
+        }
+
         static string LastLines(string wrapped, int maxLines)
         {
             if (maxLines <= 0) return wrapped;

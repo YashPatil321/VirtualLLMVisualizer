@@ -57,7 +57,9 @@ namespace OCS.VR.EditorTools
         // Node panels, metres.
         // Name on top, caption under it, both inside the panel, so nothing hangs below it
         // for Rig 2's beam to cut through.
-        static readonly Vector3 PanelSize = new Vector3(0.40f, 0.13f, 0.008f);
+        // Name, then a line saying what the node does, then the caption for what just
+        // happened there.
+        static readonly Vector3 PanelSize = new Vector3(0.46f, 0.15f, 0.008f);
 
         // A strip floating over the front edge of the bench, tilted to face the viewer:
         // the narration line on top, the "where the time goes" bar under it. Everything
@@ -85,8 +87,8 @@ namespace OCS.VR.EditorTools
         // Line heights for text, metres. Sized for the distance each is read from, so all
         // of it is roughly the same size to the eye.
         const float NodeNameHeight = 0.045f;
-        const float NodeCaptionHeight = 0.022f;
-        const float PartLabelHeight = 0.024f;
+        const float NodeCaptionHeight = 0.026f;
+        const float PartLabelHeight = 0.028f;
         const float ReadoutHeight = 0.024f;
         const float NarrationHeight = 0.028f;
         const float DashboardCaptionHeight = 0.018f;
@@ -320,8 +322,10 @@ namespace OCS.VR.EditorTools
                          new Vector3(panel.x * 1.1f, 0.09f, 1f), "GlowBeamSoft");
 
                 float front = -panel.z / 2f - 0.003f;
-                Text("Name", marker.transform, new Vector3(0f, 0.03f * ViewScale, front), NodeNameHeight * ViewScale,
+                Text("Name", marker.transform, new Vector3(0f, 0.045f * ViewScale, front), NodeNameHeight * ViewScale,
                      TextAnchor.MiddleCenter, TextColour, node.DisplayLabel);
+                Text("Role", marker.transform, new Vector3(0f, 0.012f * ViewScale, front), 0.022f * ViewScale,
+                     TextAnchor.MiddleCenter, new Color(Cyan.r, Cyan.g, Cyan.b) * 0.9f, node.role ?? string.Empty);
                 captions[i] = Text("Caption", marker.transform, new Vector3(0f, -0.004f * ViewScale, front),
                                    NodeCaptionHeight * ViewScale, TextAnchor.UpperCenter, CaptionColour);
             }
@@ -371,6 +375,9 @@ namespace OCS.VR.EditorTools
             GameObject dashboard = BuildDashboard(trace, player, out GameObject timeline);
             BuildPartLabels(sequence, partObjects, assembly);
             GameObject answer = BuildAnswerPanel(player);
+            InfoBoard facts = Load<InfoBoard>("RigFacts.asset");
+            GameObject factsBoard = facts != null ? BuildFactsBoard(facts) : null;
+            GameObject journeyBoard = BuildJourneyBoard(player, graph);
             BuildTokenStream(player, cardDisplay, answer.transform.Find("Response"));
 
             // ---------- narration ----------
@@ -416,7 +423,15 @@ namespace OCS.VR.EditorTools
                 new StageCue { target = systemView.transform, act = Act.PowerOn, move = StageMove.Appear, delay = 1.8f, duration = 1.4f },
                 new StageCue { target = timeline.transform, act = Act.Request, move = StageMove.Appear, delay = 0f, duration = 0.6f },
                 new StageCue { target = answer.transform, act = Act.Request, move = StageMove.Appear, delay = 0f, duration = 0.8f },
+                new StageCue { target = journeyBoard.transform, act = Act.Request, move = StageMove.Appear, delay = 0f, duration = 0.8f },
             };
+            if (factsBoard != null)
+            {
+                // After the diagram has grown in, so the two don't compete for the eye.
+                var withFacts = new List<StageCue>(stage.cues);
+                withFacts.Add(new StageCue { target = factsBoard.transform, act = Act.PowerOn, move = StageMove.Appear, delay = 2.6f, duration = 0.9f });
+                stage.cues = withFacts.ToArray();
+            }
 
             // ---------- the hall reacting ----------
             WorldPulseDriver pulseDriver = experience.AddComponent<WorldPulseDriver>();
@@ -723,8 +738,8 @@ namespace OCS.VR.EditorTools
                  new Color(Cyan.r, Cyan.g, Cyan.b), "PROMPT");
             TextMesh prompt = Text("Prompt", root.transform, new Vector3(left, h / 2f - 0.07f, front), 0.03f,
                                    TextAnchor.UpperLeft, TextColour);
-            Text("Response Label", root.transform, new Vector3(left, h / 2f - 0.17f, front), 0.022f, TextAnchor.UpperLeft,
-                 Amber, "RESPONSE  ·  RIG 2, GPU 3");
+            TextMesh heading = Text("Response Label", root.transform, new Vector3(left, h / 2f - 0.17f, front), 0.022f,
+                                    TextAnchor.UpperLeft, Amber, "RESPONSE");
             TextMesh response = Text("Response", root.transform, new Vector3(left, h / 2f - 0.2f, front), 0.03f,
                                      TextAnchor.UpperLeft, ReadoutColour);
 
@@ -732,8 +747,56 @@ namespace OCS.VR.EditorTools
             panel.player = player;
             panel.prompt = prompt;
             panel.response = response;
+            panel.responseHeading = heading;
             panel.charsPerLine = 40;
             panel.maxLines = 6;
+            return root;
+        }
+
+        // Two boards standing either side of the viewer, turned toward them: what the rig
+        // is on the left, how the request moves through the system on the right. Off to the
+        // sides on purpose: the viewer turns to read them, and they never cover the rig.
+        static readonly Vector3 FactsBoardPosition = new Vector3(-1.55f, 1.55f, 0.45f);
+        static readonly Vector3 JourneyBoardPosition = new Vector3(1.55f, 1.55f, 0.45f);
+        const float InfoBoardHeight = 0.5f;
+
+        /// <summary>A dark board facing the viewer, lit along the top, with a title.</summary>
+        static GameObject Board(string name, Vector3 position, float w, string title, Color titleColour)
+        {
+            GameObject root = new GameObject(name);
+            root.transform.position = position;
+            root.transform.rotation = FacingViewer(position);
+            float h = InfoBoardHeight, front = -0.008f;
+            Child(root, "Panel", PrimitiveType.Cube, Vector3.zero, new Vector3(w, h, 0.01f), "NodePanel");
+            Child(root, "Top Edge", PrimitiveType.Cube, new Vector3(0f, h / 2f - 0.003f, front), new Vector3(w, 0.006f, 0.003f), "NodeAccentLit");
+            GlowQuad("Top Glow", root.transform, new Vector3(0f, h / 2f, front - 0.002f), new Vector3(w * 1.1f, 0.12f, 1f), "GlowBeamSoft");
+            Text("Title", root.transform, new Vector3(-w / 2f + 0.05f, h / 2f - 0.045f, front), 0.032f,
+                 TextAnchor.UpperLeft, titleColour, title);
+            return root;
+        }
+
+        /// <summary>"Rig 2 at a glance": the facts from RigFacts.asset.</summary>
+        static GameObject BuildFactsBoard(InfoBoard facts)
+        {
+            const float w = 1.05f;
+            GameObject root = Board("Rig Facts Board", FactsBoardPosition, w, facts.title, new Color(Cyan.r, Cyan.g, Cyan.b));
+            string body = facts.lines != null ? string.Join("\n", facts.lines) : string.Empty;
+            Text("Facts", root.transform, new Vector3(-w / 2f + 0.05f, InfoBoardHeight / 2f - 0.1f, -0.008f), 0.042f,
+                 TextAnchor.UpperLeft, TextColour, body);
+            return root;
+        }
+
+        /// <summary>"How a request flows": every hop, lit as the request reaches it.</summary>
+        static GameObject BuildJourneyBoard(TracePlayer player, SystemGraph graph)
+        {
+            const float w = 1.15f;
+            GameObject root = Board("Request Journey Board", JourneyBoardPosition, w, "HOW A REQUEST FLOWS", Amber);
+            TextMesh body = Text("Steps", root.transform, new Vector3(-w / 2f + 0.05f, InfoBoardHeight / 2f - 0.1f, -0.008f),
+                                 0.032f, TextAnchor.UpperLeft, Color.white);
+            JourneyBoard board = root.AddComponent<JourneyBoard>();
+            board.player = player;
+            board.graph = graph;
+            board.text = body;
             return root;
         }
 
@@ -841,9 +904,16 @@ namespace OCS.VR.EditorTools
 
             Text("Everything Else", timelineRoot.transform, new Vector3(x0, -0.012f, 0f), DashboardCaptionHeight,
                  TextAnchor.UpperLeft, new Color(Cyan.r, Cyan.g, Cyan.b) * 0.85f,
-                 "Routing, scheduling, network  " + TelemetryText.Duration(total - generating));
+                 "Routing, scheduling, network  " + TelemetryText.Duration(total - generating) +
+                 "  (" + JourneyText.Percent(total - generating, total) + ")");
             Text("Generating", timelineRoot.transform, new Vector3(-x0, -0.012f, 0f), DashboardCaptionHeight,
-                 TextAnchor.UpperRight, Amber, "GPU generating  " + TelemetryText.Duration(generating));
+                 TextAnchor.UpperRight, Amber, "GPU generating  " + TelemetryText.Duration(generating) +
+                 "  (" + JourneyText.Percent(generating, total) + ")");
+            // Honest about the clock: the replay runs slower than the real request did.
+            string speed = Mathf.Approximately(player.timeScale, 0.5f) ? "half speed"
+                         : player.timeScale.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + "× speed";
+            Text("Replay Note", timelineRoot.transform, new Vector3(0f, -0.04f, 0f), DashboardCaptionHeight * 0.85f,
+                 TextAnchor.UpperCenter, CaptionColour, "Real timings from the trace, replayed at " + speed);
 
             RequestTimeline timeline = timelineRoot.AddComponent<RequestTimeline>();
             timeline.player = player;
@@ -883,8 +953,12 @@ namespace OCS.VR.EditorTools
                     if (step.kind == PartKind.Gpu && step.cardIndex % 2 == 1) offset.y += 0.04f;
                 }
 
+                // The name, and under it, smaller and quieter, one fact about the part.
+                string content = string.IsNullOrEmpty(step.detail)
+                    ? step.LabelText
+                    : step.LabelText + "\n<size=" + (FontSize * 7 / 10) + "><color=#9FB6CC>" + step.detail + "</color></size>";
                 TextMesh text = Text("Label " + step.stepId, root.transform, Vector3.zero, PartLabelHeight,
-                                     TextAnchor.LowerCenter, TextColour, step.LabelText);
+                                     TextAnchor.LowerCenter, TextColour, content);
                 text.gameObject.AddComponent<FaceCamera>();
                 LineRenderer leader = Line("Leader", text.transform, 0.001f, new Color(Cyan.r, Cyan.g, Cyan.b, 0.5f));
 

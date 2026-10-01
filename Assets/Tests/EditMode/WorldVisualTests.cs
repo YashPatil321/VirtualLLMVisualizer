@@ -150,4 +150,49 @@ namespace OCS.VR.Tests
             Assert.AreEqual(10, AnswerText.WordsAt(250f, 100f, 200f, 10));
         }
     }
+
+    public class JourneyTextTests
+    {
+        static System.Collections.Generic.List<OCS.VR.Telemetry.Hop> Hops()
+        {
+            return new System.Collections.Generic.List<OCS.VR.Telemetry.Hop>
+            {
+                new OCS.VR.Telemetry.Hop { hop = "client", t_start_ms = 0, t_end_ms = 10, label = "Sent" },
+                new OCS.VR.Telemetry.Hop { hop = "model", t_start_ms = 10, t_end_ms = 1010, label = "Generating", gpu_index = 3 },
+            };
+        }
+
+        [Test]
+        public void OneStatePerHopPlusBeforeAndAfter()
+        {
+            string[] f = JourneyText.Frames(Hops(), new[] { "Client", "Rig 2" });
+            Assert.AreEqual(4, f.Length);
+            Assert.IsTrue(f[0].Contains("1  Client  ·  Sent  ·  10 ms"), f[0]);
+        }
+
+        [Test]
+        public void TheRunningHopIsLitAndTheGpuInAmber()
+        {
+            string[] f = JourneyText.Frames(Hops(), new[] { "Client", "Rig 2" });
+            Assert.IsTrue(f[1].StartsWith("<color=" + JourneyText.Active + ">1"), f[1]);
+            Assert.IsTrue(f[2].Contains("<color=" + JourneyText.Gpu + ">2"), f[2]);
+            Assert.IsTrue(f[2].StartsWith("<color=" + JourneyText.Done + ">1"), f[2]);
+        }
+
+        [Test]
+        public void TheLastStateGivesTheTotalAndTheGpuShare()
+        {
+            string[] f = JourneyText.Frames(Hops(), new[] { "Client", "Rig 2" });
+            Assert.IsTrue(f[3].Contains("Total 1.01 s"), f[3]);
+            Assert.IsTrue(f[3].Contains("99.0%"), f[3]);
+        }
+
+        [Test]
+        public void TheResponseHeadingNamesTheCardAndModel()
+        {
+            var trace = new OCS.VR.Telemetry.Trace();
+            trace.hops.Add(new OCS.VR.Telemetry.Hop { hop = "rig", gpu_index = 3, model = "m-7b", quantization = "Q4_K_M" });
+            Assert.AreEqual("RESPONSE  ·  GPU 3  ·  m-7b, Q4_K_M", AnswerText.ResponseHeading(trace));
+        }
+    }
 }

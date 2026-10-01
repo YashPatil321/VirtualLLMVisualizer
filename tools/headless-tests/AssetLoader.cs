@@ -48,6 +48,32 @@ public static class AssetLoader
             if (val.Length == 0)
             {
                 i++;
+                // A list of plain values, "  - \"text\"": a string[] or List<string>.
+                Type scalar = f.FieldType.IsArray ? f.FieldType.GetElementType()
+                            : f.FieldType.IsGenericType && f.FieldType.GetGenericTypeDefinition() == typeof(List<>)
+                                ? f.FieldType.GetGenericArguments()[0] : null;
+                if (scalar != null && (scalar == typeof(string) || scalar.IsPrimitive))
+                {
+                    var values = new List<object>();
+                    while (i < lines.Count && lines[i].Trim().StartsWith("- "))
+                    {
+                        values.Add(Convert(lines[i].Trim().Substring(2).Trim(), scalar));
+                        i++;
+                    }
+                    if (f.FieldType.IsArray)
+                    {
+                        Array arr = Array.CreateInstance(scalar, values.Count);
+                        for (int k = 0; k < values.Count; k++) arr.SetValue(values[k], k);
+                        f.SetValue(target, arr);
+                    }
+                    else
+                    {
+                        var list = (IList)Activator.CreateInstance(f.FieldType);
+                        foreach (object v in values) list.Add(v);
+                        f.SetValue(target, list);
+                    }
+                    continue;
+                }
                 if (f.FieldType.IsGenericType && f.FieldType.GetGenericTypeDefinition() == typeof(List<>))
                 {
                     Type et = f.FieldType.GetGenericArguments()[0];
@@ -81,6 +107,7 @@ public static class AssetLoader
                 return System.Text.RegularExpressions.Regex.Unescape(val.Substring(1, val.Length - 2));
             return val;
         }
+        if (t == typeof(bool)) return val == "1" || val == "true";
         if (t == typeof(float)) return float.Parse(val, CultureInfo.InvariantCulture);
         if (t == typeof(int)) return int.Parse(val, CultureInfo.InvariantCulture);
         if (t.IsEnum) return Enum.ToObject(t, int.Parse(val, CultureInfo.InvariantCulture));

@@ -52,6 +52,10 @@ namespace OCS.VR.Rig
         [UnityEngine.Tooltip("Label text. Blank uses partName.")]
         public string label;
 
+        [UnityEngine.Tooltip("Optional second line under the label, smaller: one fact worth " +
+                             "knowing about the part. Give it a longer labelSeconds to read.")]
+        public string detail;
+
         [UnityEngine.Tooltip("Where the label sits, in metres from the part's centre. Zero puts " +
                              "it just above the part. Move it for parts the cards will cover.")]
         public UnityEngine.Vector3 labelOffset;

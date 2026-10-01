@@ -124,6 +124,17 @@ Experience
 - `Experience/TokenStream.cs` — tokens flying off the working card into the answer panel
 - `Experience/AnswerText.cs`, `Experience/AnswerPanel.cs` — the prompt, and the answer
   typing itself out word by word
+- `Experience/InfoBoard.cs` — a board of facts as data (`RigFacts.asset`), shown left of
+  the viewer as "Rig 2 at a glance"
+- `Experience/JourneyText.cs`, `Experience/JourneyBoard.cs` — "How a request flows", right
+  of the viewer: every hop with its time, lit as the request reaches it, then the total
+  and the GPU's share
+
+Information lives in the data, so wording can be corrected without code: each assembly
+step's `label` and `detail` (a fact line under the part's name), each system node's
+`role` (what it does, on its panel), `RigFacts.asset`, and `prompt_preview` /
+`response_preview` in the trace. Facts there are checked against spec sheets; anything
+about how the scheduler assigns cards should only say what the trace shows.
 
 Shaders, in `Assets/Shaders/`, all unlit and Single Pass Instanced safe
 - `OCSGlow.shader` — additive soft light (blob, beam or ring): halos, beams, rings,
@@ -148,11 +159,11 @@ between that script, `RigLayout.asset` and the builder; change them together.
 
 Data, in `Assets/Data/`
 - `RigLayout.asset`, `AssemblySequence.asset` (23 steps), `SystemGraph.asset`
-  (5 nodes), `NarrationTrack.asset` (11 lines), `sample-trace.json`
+  (5 nodes), `NarrationTrack.asset` (11 lines), `RigFacts.asset`, `sample-trace.json`
 
 Tests in `Assets/Tests/EditMode/` cover the loader, card lighting, the assembly
 timeline, hop routing, narration cues, beam glow, readout text, timeline layout,
-stage timing, flight paths, the power on wave and the answer text.
+stage timing, flight paths, the power on wave, the answer text and the journey board.
 `tools/headless-tests/` also compiles the shaders' HLSL with glslang when it is
 installed; that catches syntax errors, not how they look.
 

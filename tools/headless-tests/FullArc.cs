@@ -25,6 +25,7 @@ public static class FullArc
         var sequence = AssetLoader.Load<AssemblySequence>(Path.Combine(dataDir, "AssemblySequence.asset"));
         var graph    = AssetLoader.Load<SystemGraph>(Path.Combine(dataDir, "SystemGraph.asset"));
         var track    = AssetLoader.Load<NarrationTrack>(Path.Combine(dataDir, "NarrationTrack.asset"));
+        var facts    = AssetLoader.Load<InfoBoard>(Path.Combine(dataDir, "RigFacts.asset"));
         string json  = File.ReadAllText(Path.Combine(dataDir, "sample-trace.json"));
 
         Console.WriteLine("=== assets bound to their C# types ===");
@@ -40,6 +41,9 @@ public static class FullArc
             problems++;
         }
         else Console.WriteLine("  every key in every asset matched a real field.");
+
+        Console.WriteLine($"  RigFacts         \"{facts.title}\", {(facts.lines != null ? facts.lines.Length : 0)} lines");
+        if (facts.lines == null || facts.lines.Length == 0) { Console.WriteLine("  >>> RigFacts has no lines."); problems++; }
 
         string err;
         if (!sequence.Validate(out err)) { Console.WriteLine("  >>> sequence invalid: " + err); problems++; }
@@ -137,11 +141,14 @@ public static class FullArc
         var tokensPs = new ParticleSystem();
         var tokenStream = new TokenStream { player = player, rig = rigDisplay, tokens = tokensPs, target = new Transform() };
         var promptText = new TextMesh(); var responseText = new TextMesh();
-        var answerPanel = new AnswerPanel { player = player, prompt = promptText, response = responseText };
+        var answerPanel = new AnswerPanel { player = player, prompt = promptText, response = responseText, responseHeading = new TextMesh() };
         int wakeId = Shader.PropertyToID("_OCSWake"), waveId = Shader.PropertyToID("_OCSWaveStrength");
         float wakeAtRequest = -1f, peakWave = 0f, peakRipple = 0f, peakTokenRate = 0f, tokenRateAfter = -1f;
         string answerMid = null;
-        var extras = new object[] { beams, hopCaptions, readout, timeline, stage, pulseDriver, bursts, tokenStream, answerPanel };
+        var journeyText = new TextMesh();
+        var journey = new JourneyBoard { player = player, graph = graph, text = journeyText };
+        string journeyDuringModel = null;
+        var extras = new object[] { beams, hopCaptions, readout, timeline, stage, pulseDriver, bursts, tokenStream, answerPanel, journey };
         int emissionId = Shader.PropertyToID("_EmissionColor");
         System.Func<int, float> glowOf = i =>
         {
@@ -215,6 +222,7 @@ public static class FullArc
             if (now == Act.Answer && tokenRateAfter < 0f) tokenRateAfter = tokenStream.Rate;
             string shown = answerPanel.Shown ?? "";
             if (answerMid == null && shown.Length > 40) answerMid = shown;
+            if (journeyDuringModel == null && tokenStream.Rate > 0f) journeyDuringModel = journey.Shown;
             if ((now == Act.EmptyBench || now == Act.Assembly) && viewT.gameObject.activeSelf) viewShownDuringAssembly = true;
             if (now < Act.Request && timelineT.gameObject.activeSelf) timelineShownBeforeRequest = true;
             if (now == Act.Request && viewScaleAtRequest < 0f)
@@ -278,6 +286,12 @@ public static class FullArc
         Console.WriteLine($"  prompt                : \"{(promptText.text ?? "").Replace("\n", " / ")}\"");
         Console.WriteLine($"  answer mid-stream     : \"{(answerMid ?? "(none)").Replace("\n", " / ")}\"");
         Console.WriteLine($"  answer at the end     : \"{finalAnswer.Replace("\n", " / ")}\"");
+        string journeyEnd = journey.Shown ?? "";
+        Console.WriteLine($"  journey board, end    : \"{journeyEnd.Substring(Math.Max(0, journeyEnd.LastIndexOf('\n') + 1))}\"");
+        Console.WriteLine($"  answer heading        : \"{(answerPanel.responseHeading != null ? answerPanel.responseHeading.text : "(none)")}\"");
+        if (journeyDuringModel == null || !journeyDuringModel.Contains("<color=" + JourneyText.Gpu + ">5  Rig 2  ·  Generating"))
+        { Console.WriteLine("  >>> BUG: the journey board didn't light the GPU step while it ran.\n      " + journeyDuringModel); problems++; }
+        if (!journeyEnd.Contains("Total 3.18 s") || !journeyEnd.Contains("96.6%")) { Console.WriteLine("  >>> BUG: the journey board didn't end on the total."); problems++; }
         if (peakWave < 0.5f || wakeAtRequest < 30f) { Console.WriteLine("  >>> BUG: the power on wave didn't run or didn't wake the hall."); problems++; }
         if (peakRipple < 0.9f) { Console.WriteLine("  >>> BUG: the floor never rippled while generating."); problems++; }
         if (bursts.Played < 32) { Console.WriteLine("  >>> BUG: missing bursts."); problems++; }

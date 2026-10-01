@@ -17,6 +17,9 @@ namespace OCS.VR.Experience
         [Tooltip("Shown on the world space label.")]
         public string displayName;
 
+        [Tooltip("One line under the name saying what this part of the system does.")]
+        public string role;
+
         [Tooltip("Used to place a hop whose node_id is not in this graph.")]
         public HopType hopType = HopType.Unknown;
 

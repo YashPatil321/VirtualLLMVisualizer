@@ -15,21 +15,26 @@ MonoBehaviour:
   nodes:
   - nodeId: web-client
     displayName: "Client"
+    role: "The app where the prompt is typed"
     hopType: 1
     position: {x: -3.0, y: -0.25, z: 0.3}
   - nodeId: ocs-broker
     displayName: "Broker"
+    role: "Front door: sessions and the queue"
     hopType: 2
     position: {x: -1.55, y: 0.55, z: 0.6}
   - nodeId: gpu-scheduler
     displayName: "Scheduler"
+    role: "Chooses which rig runs each job"
     hopType: 3
     position: {x: 1.55, y: 0.55, z: 0.6}
   - nodeId: rig-2
     displayName: "Rig 2"
+    role: "8 × GTX 1070  ·  64 GB of VRAM"
     hopType: 5
     position: {x: -0.04, y: -0.45, z: -0.6}
   - nodeId: rig-1
     displayName: "Rig 1"
+    role: "Another GPU rig, free this time"
     hopType: 0
     position: {x: 3.0, y: -0.25, z: 0.3}

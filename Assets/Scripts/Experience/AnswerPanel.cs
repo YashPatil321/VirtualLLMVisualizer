@@ -13,6 +13,9 @@ namespace OCS.VR.Experience
         public TextMesh prompt;
         public TextMesh response;
 
+        [Tooltip("Optional. Says which card and model wrote the response, from the trace.")]
+        public TextMesh responseHeading;
+
         public int charsPerLine = 38;
         public int maxLines = 6;
 
@@ -38,6 +41,7 @@ namespace OCS.VR.Experience
                     if (trace.hops[i].Type == HopType.Model) { _model = trace.hops[i]; break; }
 
             if (prompt != null) prompt.text = AnswerText.Wrap(trace.prompt_preview, charsPerLine);
+            if (responseHeading != null) responseHeading.text = AnswerText.ResponseHeading(trace);
             _frames = AnswerText.Frames(trace.response_preview, charsPerLine, maxLines);
             _shown = -1;
             if (response != null) response.text = string.Empty;

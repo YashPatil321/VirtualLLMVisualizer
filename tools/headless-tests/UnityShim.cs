@@ -50,6 +50,7 @@ namespace UnityEngine
         public static float Sin(float a) => (float)System.Math.Sin(a);
         public static float Cos(float a) => (float)System.Math.Cos(a);
         public static float Clamp01(float v) => v < 0f ? 0f : (v > 1f ? 1f : v);
+        public static bool Approximately(float a, float b) => Math.Abs(a - b) < 1e-6f;
         public static int Clamp(int v, int lo, int hi) => v < lo ? lo : (v > hi ? hi : v);
         public static float Clamp(float v, float lo, float hi) => v < lo ? lo : (v > hi ? hi : v);
         public static int Max(int a, int b) => a > b ? a : b;
